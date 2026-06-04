@@ -757,7 +757,9 @@ bool CSourceAppSystemGroup::Create()
 		pDLLName = "shaderapiempty" DLL_EXT_STRING;
 	}
 
+	COM_TimestampedLog( "LoadAppSystems: before SetShaderAPI(%s)", pDLLName );
 	pMaterialSystem->SetShaderAPI( pDLLName );
+	COM_TimestampedLog( "LoadAppSystems: after SetShaderAPI(%s)", pDLLName );
 
 	double elapsed = Plat_FloatTime() - st;
 	COM_TimestampedLog( "LoadAppSystems:  Took %.4f secs to load libraries and get factories.", (float)elapsed );

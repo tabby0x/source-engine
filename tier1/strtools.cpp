@@ -229,6 +229,37 @@ char *V_strupr( char *start )
 	return start;
 }
 
+char *V_strtitlecase( char *start )
+{
+	bool bSeparator = true;
+	unsigned char *str = (unsigned char*)start;
+	while( *str )
+	{
+		if ( V_isspace( *str ) )
+		{
+			bSeparator = true;
+		}
+		else if ( bSeparator )
+		{
+			if ( (unsigned char)(*str - 'a') <= ('z' - 'a') )
+				*str -= 'a' - 'A';
+			else if ( (unsigned char)*str >= 0x80 )
+				*str = toupper( *str );
+
+			bSeparator = false;
+		}
+		else
+		{
+			if ( (unsigned char)(*str - 'A') <= ('Z' - 'A') )
+				*str += 'a' - 'A';
+			else if ( (unsigned char)*str >= 0x80 )
+				*str = tolower( *str );
+		}
+		str++;
+	}
+	return start;
+}
+
 char *V_strlower( char *start )
 {
 	unsigned char *str = (unsigned char*)start;

@@ -653,10 +653,16 @@ void CBaseEntity::SetPredictionRandomSeed( const CUserCmd *cmd )
 	if ( !cmd )
 	{
 		m_nPredictionRandomSeed = -1;
+#ifdef GAME_DLL
+		m_nPredictionRandomSeedServer = -1;
+#endif
 		return;
 	}
 
 	m_nPredictionRandomSeed = ( cmd->random_seed );
+#ifdef GAME_DLL
+	m_nPredictionRandomSeedServer = ( cmd->server_random_seed );
+#endif
 }
 
 
@@ -2311,6 +2317,18 @@ int CBaseEntity::GetTracerAttachment( void )
 
 	return iAttachment;
 }
+
+#ifndef CLIENT_DLL
+float CBaseEntity::HealthFraction() const
+{
+	if ( GetMaxHealth() == 0 )
+		return 1.0f;
+
+	float flFraction = (float)GetHealth() / (float)GetMaxHealth();
+	flFraction = clamp( flFraction, 0.0f, 1.0f );
+	return flFraction;
+}
+#endif // !CLIENT_DLL
 
 
 int CBaseEntity::BloodColor()

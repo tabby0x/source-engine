@@ -17,6 +17,8 @@
 #include "engine/IEngineTrace.h"
 #include "engine/IStaticPropMgr.h"
 #include "shared_classnames.h"
+#include "steam/steamuniverse.h"
+#include "tier1/strtools.h"
 
 #ifdef CLIENT_DLL
 #include "cdll_client_int.h"
@@ -31,6 +33,7 @@
 //-----------------------------------------------------------------------------
 class CGameTrace;
 class CBasePlayer;
+class CSteamID;
 typedef CGameTrace trace_t;
 
 extern ConVar developer;	// developer mode
@@ -466,6 +469,38 @@ inline float DistanceToRay( const Vector &pos, const Vector &rayStart, const Vec
 
 
 //--------------------------------------------------------------------------------------------------------------
+// You can use this if you need an autolist without an extra interface type involved.
+// To use this, just inherit (class Mine : public TAutoList<Mine> {)
+template< class T >
+class TAutoList
+{
+public:
+	typedef CUtlVector< T* > AutoListType;
+
+	static AutoListType &GetAutoList()
+	{
+		return m_autolist;
+	}
+
+protected:
+	TAutoList()
+	{
+		m_autolist.AddToTail( static_cast< T* >( this ) );
+	}
+
+	virtual ~TAutoList()
+	{
+		m_autolist.FindAndFastRemove( static_cast< T* >( this ) );
+	}
+
+private:
+	static AutoListType m_autolist;
+};
+
+template< class T >
+CUtlVector< T* > TAutoList< T >::m_autolist;
+
+//--------------------------------------------------------------------------------------------------------------
 /**
  * Simple class for tracking intervals of game time.
  * Upon creation, the timer is invalidated.  To measure time intervals, start the timer via Start().
@@ -579,7 +614,15 @@ public:
 private:
 	float m_duration;
 	float m_timestamp;
-	float Now( void ) const;		// work-around since client header doesn't like inlined gpGlobals->curtime
+	virtual float Now( void ) const;		// work-around since client header doesn't like inlined gpGlobals->curtime
+};
+
+class RealTimeCountdownTimer : public CountdownTimer
+{
+	virtual float Now( void ) const OVERRIDE
+	{
+		return Plat_FloatTime();
+	}
 };
 
 char* ReadAndAllocStringValue( KeyValues *pSub, const char *pName, const char *pFilename = NULL );
@@ -600,5 +643,35 @@ bool				UTIL_IsHolidayActive( /*EHoliday*/ int eHoliday );
 // holidays overlapping, the list order will act as priority.
 const char		   *UTIL_GetActiveHolidayString();
 
+const char *UTIL_GetRandomSoundFromEntry( const char* pszEntryName );
+
+#ifdef CLIENT_DLL
+char *UTIL_GetFilteredPlayerName( int iPlayerIndex, char *pszName );
+char *UTIL_GetFilteredPlayerName( const CSteamID &steamID, char *pszName );
+wchar_t *UTIL_GetFilteredPlayerNameAsWChar( int iPlayerIndex, const char *pszName, wchar_t *pwszName );
+wchar_t *UTIL_GetFilteredPlayerNameAsWChar( const CSteamID &steamID, const char *pszName, wchar_t *pwszName );
+#endif
+
+/// Clamp and round float vals to int.  The values are in the 0...255 range.
+Color FloatRGBAToColor( float r, float g, float b, float a );
+float LerpFloat( float x0, float x1, float t );
+Color LerpColor( const Color &c0, const Color &c1, float t );
+
+// Global econ-level helper functionality.
+EUniverse GetUniverse();
+
+CSteamID SteamIDFromDecimalString( const char *pszUint64InDecimal );
+CSteamID UTIL_SteamIDFromProperString( const char *pszInput, bool bAllowSteam2 = true );
+CSteamID UTIL_GuessSteamIDFromFuzzyInput( const char *pszInputRaw, bool bCurrentUniverseOnly = true );
+
+const char *GetCleanMapName( const char *pszUnCleanMapName, char (&pszTmp)[256] );
+
+inline bool MapHasPrefix( const char *pszUnCleanMapName, const char *prefix )
+{
+	char maptmp[ 256 ];
+	const char *pszCleanMapName = GetCleanMapName( pszUnCleanMapName, maptmp );
+
+	return StringHasPrefix( pszCleanMapName, prefix );
+}
 
 #endif // UTIL_SHARED_H

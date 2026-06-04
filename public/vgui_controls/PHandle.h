@@ -76,14 +76,19 @@ class DHANDLE : public PHandle
 {
 public:
 	PanelType *Get()					{ return (PanelType *)PHandle::Get(); }
+	PanelType *Get() const				{ return (PanelType *)PHandle::Get(); }
 	PanelType *Set( PanelType *pPanel )	{ return (PanelType *)PHandle::Set(pPanel); }
 	PanelType *Set( HPanel hPanel )		{ return (PanelType *)PHandle::Set(hPanel); }
 
 	operator PanelType *()						{ return (PanelType *)PHandle::Get(); }
+	operator PanelType *() const					{ return (PanelType *)PHandle::Get(); }
 	PanelType * operator ->()					{ return (PanelType *)PHandle::Get(); }
+	PanelType * operator ->() const				{ return (PanelType *)PHandle::Get(); }
 	PanelType * operator = (PanelType *pPanel)	{ return (PanelType *)PHandle::Set(pPanel); }
 	bool operator == (Panel *pPanel)			{ return (PHandle::Get() == pPanel); }
+	bool operator == (Panel *pPanel) const		{ return (PHandle::Get() == pPanel); }
 	operator bool ()							{ return PHandle::Get() != NULL; }
+	operator bool () const						{ return PHandle::Get() != NULL; }
 };
 
 };

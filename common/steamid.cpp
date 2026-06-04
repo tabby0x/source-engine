@@ -516,6 +516,19 @@ bool CSteamID::SetFromSteam2String( const char *pchSteam2ID, EUniverse eUniverse
 	SetFromSteam2( &steam2ID, eUniverse );
 	return true;
 }
+
+bool SteamIDFromSteam2String( const char *pchSteam2ID, EUniverse eUniverse, CSteamID *pSteamIDOut )
+{
+	if ( !pSteamIDOut )
+		return false;
+
+	CSteamID steamID;
+	if ( !steamID.SetFromSteam2String( pchSteam2ID, eUniverse ) )
+		return false;
+
+	*pSteamIDOut = steamID;
+	return true;
+}
 #endif
 
 //-----------------------------------------------------------------------------
@@ -583,7 +596,7 @@ const char * CSteamID::Render() const
 	}
 	else if ( k_EAccountTypeIndividual == m_steamid.m_comp.m_EAccountType )
 	{
-		if ( m_steamid.m_comp.m_unAccountInstance != k_unSteamUserDesktopInstance )
+		if ( m_steamid.m_comp.m_unAccountInstance != k_unSteamUserDefaultInstance )
 			V_snprintf( pchBuf, k_cBufLen, "[U:%u:%u:%u]", m_steamid.m_comp.m_EUniverse, m_steamid.m_comp.m_unAccountID, m_steamid.m_comp.m_unAccountInstance );
 		else
 			V_snprintf( pchBuf, k_cBufLen, "[U:%u:%u]", m_steamid.m_comp.m_EUniverse, m_steamid.m_comp.m_unAccountID );

@@ -626,7 +626,7 @@ private:
 	bool	m_wroteCollisionGroup;
 };
 
-void BreakModelList( CUtlVector<breakmodel_t> &list, int modelindex, float defBurstScale, int defCollisionGroup )
+void BuildPropList( const char *pszBlockName, CUtlVector<breakmodel_t> &list, int modelindex, float defBurstScale, int defCollisionGroup )
 {
 	vcollide_t *pCollide = modelinfo->GetVCollide( modelindex );
 	if ( !pCollide )
@@ -638,7 +638,7 @@ void BreakModelList( CUtlVector<breakmodel_t> &list, int modelindex, float defBu
 		CBreakParser breakParser( defBurstScale, defCollisionGroup );
 		
 		const char *pBlock = pParse->GetCurrentBlockName();
-		if ( !strcmpi( pBlock, "break" ) )
+		if ( !strcmpi( pBlock, pszBlockName ) )
 		{
 			int index = list.AddToTail();
 			breakmodel_t &breakModel = list[index];
@@ -650,6 +650,11 @@ void BreakModelList( CUtlVector<breakmodel_t> &list, int modelindex, float defBu
 		}
 	}
 	physcollision->VPhysicsKeyParserDestroy( pParse );
+}
+
+void BreakModelList( CUtlVector<breakmodel_t> &list, int modelindex, float defBurstScale, int defCollisionGroup )
+{
+	BuildPropList( "break", list, modelindex, defBurstScale, defCollisionGroup );
 }
 
 #if !defined(_STATIC_LINKED) || defined(CLIENT_DLL)
@@ -1226,9 +1231,8 @@ void PropBreakableCreateAll( int modelindex, IPhysicsObject *pPhysics, const Vec
 // Purpose: 
 // Input  : modelindex - 
 //-----------------------------------------------------------------------------
-void PrecacheGibsForModel( int iModel )
+void PrecachePropsForModel( int iModel, const char *pszBlockName )
 {
-	VPROF_BUDGET( "PrecacheGibsForModel", VPROF_BUDGETGROUP_PLAYER );
 	vcollide_t *pCollide = modelinfo->GetVCollide( iModel );
 	if ( !pCollide )
 		return;
@@ -1241,7 +1245,7 @@ void PrecacheGibsForModel( int iModel )
 	while ( !pParse->Finished() )
 	{
 		const char *pBlock = pParse->GetCurrentBlockName();
-		if ( !strcmpi( pBlock, "break" ) )
+		if ( !strcmpi( pBlock, pszBlockName ) )
 		{
 			breakmodel_t breakModel;
 			pParse->ParseCustom( &breakModel, &breakParser );
@@ -1255,6 +1259,12 @@ void PrecacheGibsForModel( int iModel )
 
 	// Destroy the parser.
 	physcollision->VPhysicsKeyParserDestroy( pParse );
+}
+
+void PrecacheGibsForModel( int iModel )
+{
+	VPROF_BUDGET( "PrecacheGibsForModel", VPROF_BUDGETGROUP_PLAYER );
+	PrecachePropsForModel( iModel, "break" );
 }
 
 //-----------------------------------------------------------------------------

@@ -8,6 +8,14 @@ import vpc_parser
 top = '.'
 PROJECT_NAME = 'client'
 
+tf_excluded_source_suffixes = [
+	'game/shared/mapbase/vscript_funcs_hl2.cpp'
+]
+
+def is_tf_excluded_source(path):
+	path = path.replace('\\', '/').lower()
+	return any(path.endswith(suffix) for suffix in tf_excluded_source_suffixes)
+
 def options(opt):
 	return
 
@@ -19,7 +27,13 @@ games = {
 	'portal': ['client_base.vpc', 'client_portal.vpc', 'imgui/imgui_system.vpc'],
 	'hl1mp': ['client_base.vpc', 'client_hl1mp.vpc', 'imgui/imgui_system.vpc'],
 	'cstrike': ['client_base.vpc', 'client_cstrike.vpc', 'imgui/imgui_system.vpc'],
-	'dod': ['client_base.vpc', 'client_dod.vpc', 'imgui/imgui_system.vpc']
+	'dod': ['client_base.vpc', 'client_dod.vpc', 'imgui/imgui_system.vpc'],
+	'tf': [
+		'client_base.vpc',
+		'client_econ_base.vpc',
+		'client_tf.vpc',
+		'imgui/imgui_system.vpc'
+	]
 }
 
 def configure(conf):
@@ -27,6 +41,8 @@ def configure(conf):
 	conf.env.GAMES = game
 
 	conf.env.append_unique('DEFINES', ['DISABLE_STEAM=1'])
+	if game == 'tf':
+		conf.env.append_unique('DEFINES', ['SOURCESDK=1', 'TF'])
 
 	if game not in games.keys():
 		conf.fatal("Couldn't find game: ", game)
@@ -45,6 +61,8 @@ def build(bld):
 		'../../vgui2/controls',
 		'../shared'
 	]
+
+	linkflags = []
 
 	libs = [
 		'tier0',
@@ -74,7 +92,60 @@ def build(bld):
 	if bld.env.DEST_OS == 'win32':
 		libs += ['USER32']
 
+	if bld.env.GAMES == 'tf':
+		includes += [
+			'../..',
+			'../../gcsdk',
+			'../../gcsdk/steamextra',
+			'../../public/gcsdk',
+			'../../thirdparty/JSON_parser',
+			'generated_proto_tf',
+			'../../thirdparty/protobuf-2.6.1/src'
+		]
+		libs += ['PNG', 'JPEG']
+		if bld.env.DEST_OS == 'win32':
+			libs += ['GDI32']
+		source += [
+			'../../common/steamid.cpp',
+			'../../gcsdk/gcclient.cpp',
+			'../../gcsdk/gcclient_sharedobjectcache.cpp',
+			'../../gcsdk/gcconstants.cpp',
+			'../../gcsdk/gclogger.cpp',
+			'../../gcsdk/gcmsg.cpp',
+			'../../gcsdk/job.cpp',
+			'../../gcsdk/jobmgr.cpp',
+			'../../gcsdk/jobtime.cpp',
+			'../../gcsdk/messagelist.cpp',
+			'../../gcsdk/msgprotobuf.cpp',
+			'../../gcsdk/netpacket.cpp',
+			'../../gcsdk/netpacketpool.cpp',
+			'../../gcsdk/protobufsharedobject.cpp',
+			'../../gcsdk/sharedobject.cpp',
+			'../../gcsdk/sharedobjectcache.cpp',
+			'../../gcsdk/steamextra/misc.cpp',
+			'../../gcsdk/steamextra/rtime.cpp',
+			'../../gcsdk/steamextra/tier1/hashglobals.cpp',
+			'../../gcsdk/steamextra/tier1/tsmempool.cpp',
+			'../../gcsdk/steamextra/tier1/tsmultimempool.cpp',
+			'../../gcsdk/webapi_response.cpp',
+			'../../gcsdk/workthreadpool.cpp',
+			'../../game/shared/tf/tf_gcmessages.cpp',
+			'../../thirdparty/JSON_parser/JSON_parser.c',
+			'generated_proto_tf/steammessages.pb.cc',
+			'generated_proto_tf/gcsystemmsgs.pb.cc',
+			'generated_proto_tf/gcsdk_gcmessages.pb.cc',
+			'generated_proto_tf/base_gcmessages.pb.cc',
+			'generated_proto_tf/econ_gcmessages.pb.cc',
+			'generated_proto_tf/tf_gcmessages.pb.cc',
+			'generated_proto_tf/tf_proto_def_messages.pb.cc'
+		]
+		if bld.env.DEST_OS == 'win32':
+			protobuf_lib_path = os.path.abspath(os.path.join(bld.path.abspath(), '../../thirdparty/protobuf-2.6.1/bin/win64/2015/staticcrt/release'))
+			linkflags += ['/LIBPATH:' + protobuf_lib_path, 'libprotobuf.lib', 'winmm.lib']
+
 	source += game["sources"] + ['../../public/tier0/memoverride.cpp']
+	if bld.env.GAMES == 'tf':
+		source = [s for s in source if not is_tf_excluded_source(s)]
 	includes += game["includes"]
 	defines = game["defines"]
 
@@ -88,6 +159,7 @@ def build(bld):
 		includes = includes,
 		defines  = defines,
 		use      = libs,
+		linkflags = linkflags,
 		install_path = install_path,
 		subsystem = bld.env.MSVC_SUBSYSTEM,
 		idx      = bld.get_taskgen_count()

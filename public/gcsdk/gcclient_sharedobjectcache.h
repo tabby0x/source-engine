@@ -161,7 +161,7 @@ public:
 	CGCClientSharedObjectTypeCache( int nTypeID, const CGCClientSharedObjectContext & context );
 	virtual ~CGCClientSharedObjectTypeCache();
 
-	bool BParseCacheSubscribedMsg( const CMsgSOCacheSubscribed_SubscribedType & msg, CUtlVector<CSharedObject*> &vecCreatedObjects, CUtlVector<CSharedObject*> &vecUpdatedObjects, CUtlVector<CSharedObject*> &vecObjectsToDestroy );
+	bool BParseCacheSubscribedMsg( const CMsgSOCacheSubscribed_SubscribedType & msg, CUtlVector<CSharedObject*> &vecCreatedObjects, CUtlVector<CSharedObject*> &vecUpdatedObjects, CUtlVector<CSharedObject*> &vecObjectsToDestroy, bool bLocal = false );
 
 	CSharedObject *BCreateFromMsg( const void *pvData, uint32 unSize, bool *bUpdatedExisting );
 	bool BDestroyFromMsg( const void *pvData, uint32 unSize );
@@ -194,6 +194,9 @@ public:
 	/// Are we currently subscribed to updates from the GC?
 	bool BIsSubscribed() const { return m_bSubscribed; }
 
+	/// Was this cache populated from a local WebAPI inventory response?
+	bool BIsLocal() const { return m_bLocal; }
+
 	/// Who owns this cache?
 	virtual const CSteamID & GetOwner() const { return m_context.GetOwner(); }
 
@@ -216,7 +219,7 @@ public:
 	CGCClientSharedObjectTypeCache *FindTypeCache( int nClassID ) { return (CGCClientSharedObjectTypeCache *)FindBaseTypeCache( nClassID ); }
 	CGCClientSharedObjectTypeCache *CreateTypeCache( int nClassID ) { return (CGCClientSharedObjectTypeCache *)CreateBaseTypeCache( nClassID ); }
 
-	bool BParseCacheSubscribedMsg( const CMsgSOCacheSubscribed & msg );
+	bool BParseCacheSubscribedMsg( const CMsgSOCacheSubscribed & msg, bool bLocal = false );
 	void NotifyUnsubscribe();
 	void NotifyResubscribedUpToDate();
 
@@ -236,6 +239,7 @@ private:
 	CGCClientSharedObjectContext m_context;
 	bool m_bInitialized;
 	bool m_bSubscribed;
+	bool m_bLocal;
 };
 
 

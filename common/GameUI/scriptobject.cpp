@@ -64,6 +64,7 @@ objtypedesc_t objtypes[] =
 	{ O_OBSOLETE  , "OBSOLETE" }, 
 	{ O_SLIDER , "SLIDER" }, 
 	{ O_CATEGORY, "CATEGORY" }, 
+	{ O_BUTTON, "BUTTON" }, 
 };
 
 mpcontrol_t::mpcontrol_t( Panel *parent, char const *panelName )
@@ -344,6 +345,16 @@ void CScriptObject::WriteToScriptFile( FileHandle_t fp )
 		}
 		g_pFullFileSystem->FPrintf( fp, "\t\t{ CATEGORY }\r\n" );
 		break;
+	case O_BUTTON:
+		g_pFullFileSystem->FPrintf( fp, "\t\t\"%s\"\r\n", prompt );
+		if ( tooltip && tooltip[0] )
+		{
+			g_pFullFileSystem->FPrintf( fp, "\t\t\"%s\"\r\n", tooltip );
+		}
+		g_pFullFileSystem->FPrintf( fp, "\t\t{ BUTTON }\r\n" );
+		FixupString( curValue, sizeof( curValue ) );
+		g_pFullFileSystem->FPrintf( fp, "\t\t{ \"%s\" }\r\n", curValue );
+		break;
 	}
 
 	if ( bSetInfo )
@@ -354,7 +365,7 @@ void CScriptObject::WriteToScriptFile( FileHandle_t fp )
 
 void CScriptObject::WriteToFile( FileHandle_t fp )
 {
-	if ( type == O_OBSOLETE || type == O_CATEGORY )
+	if ( type == O_OBSOLETE || type == O_CATEGORY || type == O_BUTTON )
 		return;
 
 	FixupString( cvarname, sizeof( cvarname ) );
@@ -406,7 +417,7 @@ void CScriptObject::WriteToFile( FileHandle_t fp )
 
 void CScriptObject::WriteToConfig( void )
 {
-	if ( type == O_OBSOLETE || type == O_CATEGORY )
+	if ( type == O_OBSOLETE || type == O_CATEGORY || type == O_BUTTON )
 		return;
 
 	char *pszKey;
@@ -589,6 +600,7 @@ bool CScriptObject::ReadFromBuffer( const char **pBuffer, bool isNewObject )
 	{
 	case O_OBSOLETE:
 	case O_BOOL:
+	case O_BUTTON:
 		// Parse the next {
 		*pBuffer = engine->ParseFile( *pBuffer, token, sizeof( token ) );
 		if ( strlen( token ) <= 0 )
@@ -1039,7 +1051,7 @@ void CDescription::TransferCurrentValues( const char *pszConfigFile )
 		ConVarRef var( pObj->cvarname, true );
 		if ( !var.IsValid() )
 		{
-			if ( pObj->type != O_CATEGORY )
+			if ( pObj->type != O_CATEGORY && pObj->type != O_BUTTON )
 			{
 				DevMsg( "Could not find '%s'\n", pObj->cvarname );
 			}

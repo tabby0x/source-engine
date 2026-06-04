@@ -27,7 +27,7 @@ void BeginDMXContext( )
 
 	if ( !s_bAllocatorInitialized )
 	{
-		s_DMXAllocator.Init( 2 * 1024 * 1024, 0, 0, 4 );
+		s_DMXAllocator.Init( 32 * 1024 * 1024, 0, 0, 4 );
 		s_bAllocatorInitialized = true;
 	}
 

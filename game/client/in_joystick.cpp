@@ -59,6 +59,7 @@ static ConVar joy_advaxisu( "joy_advaxisu", "3", FCVAR_ARCHIVE );
 static ConVar joy_advaxisv( "joy_advaxisv", "0", FCVAR_ARCHIVE );
 
 // Basic "dead zone" and sensitivity
+ConVar sc_look_sensitivity_scale( "sc_look_sensitivity_scale", "0.125", FCVAR_NONE, "Steam Controller look sensitivity global scale factor." );
 static ConVar joy_forwardthreshold( "joy_forwardthreshold", "0.15", FCVAR_ARCHIVE );
 static ConVar joy_sidethreshold( "joy_sidethreshold", "0.15", FCVAR_ARCHIVE );
 static ConVar joy_pitchthreshold( "joy_pitchthreshold", "0.15", FCVAR_ARCHIVE );
@@ -130,6 +131,29 @@ extern ConVar thirdperson_screenspace;
 bool CInput::EnableJoystickMode()
 {
 	return IsConsole() || in_joystick.GetBool();
+}
+
+void CInput::SetPreferredGameActionSet( GameActionSet_t action_set )
+{
+	m_ePreferredGameActionSet = action_set;
+}
+
+GameActionSet_t CInput::GetPreferredGameActionSet()
+{
+	return m_ePreferredGameActionSet;
+}
+
+void CInput::SetGameActionSetFlags( GameActionSetFlags_t action_set_flags )
+{
+	m_eGameActionSetFlags = action_set_flags;
+}
+
+//-----------------------------------------------------------------
+// Purpose: Returns true if Steam Controller input is currently active.
+//-----------------------------------------------------------------
+bool CInput::IsSteamControllerActive()
+{
+	return g_pInputSystem && g_pInputSystem->IsSteamControllerActive();
 }
 
 

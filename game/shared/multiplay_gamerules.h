@@ -239,7 +239,9 @@ public:
 	virtual void GetNextLevelName( char *szNextMap, int bufsize, bool bRandom = false );
 
 	static void DetermineMapCycleFilename( char *pszResult, int nSizeResult, bool bForceSpew );
+	virtual void LoadMapCycleFileIntoVector ( const char *pszMapCycleFile, CUtlVector<char *> &mapList );
 	static void LoapMapCycleFileIntoVector ( const char *pszMapCycleFile, CUtlVector<char *> &mapList );
+	static void RawLoadMapCycleFileIntoVector ( const char *pszMapCycleFile, CUtlVector<char *> &mapList );
 	static void FreeMapCycleFileVector ( CUtlVector<char *> &mapList );
 
 	bool IsMapInMapCycle( const char *pszName );
@@ -252,7 +254,7 @@ public:
 
 protected:
 	virtual void GoToIntermission( void );
-	void LoadMapCycleFile( void );
+	virtual void LoadMapCycleFile( void );
 	void ChangeLevelToMap( const char *pszMap );
 
 	float m_flIntermissionEndTime;

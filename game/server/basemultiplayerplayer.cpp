@@ -30,6 +30,9 @@ CBaseMultiplayerPlayer::~CBaseMultiplayerPlayer()
 	m_pAchievementKV->deleteThis();
 }
 
+BEGIN_ENT_SCRIPTDESC( CBaseMultiplayerPlayer, CBasePlayer, "Multiplayer Player" )
+END_SCRIPTDESC();
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -82,6 +85,15 @@ IResponseSystem *CBaseMultiplayerPlayer::GetResponseSystem()
 	return BaseClass::GetResponseSystem();
 	// NOTE: This is where you would hook your custom responses.
 //	return <*>GameRules()->m_ResponseRules[iIndex].m_ResponseSystems[m_iCurrentConcept];
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Doesn't actually speak the concept. Just finds a response in the system. You then have to play it yourself.
+//-----------------------------------------------------------------------------
+bool CBaseMultiplayerPlayer::SpeakConcept( AI_Response &response, int iConcept )
+{
+	m_iCurrentConcept = iConcept;
+	return SpeakFindResponse( response, g_pszMPConcepts[iConcept] );
 }
 
 //-----------------------------------------------------------------------------

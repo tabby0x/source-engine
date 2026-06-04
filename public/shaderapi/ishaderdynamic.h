@@ -289,6 +289,7 @@ public:
 
 	virtual void GetDX9LightState( LightState_t *state ) const = 0;
 	virtual int GetPixelFogCombo( ) = 0; //0 is either range fog, or no fog simulated with rigged range fog values. 1 is height fog
+	int GetPixelFogCombo1( bool bSupportsRadial ) { (void)bSupportsRadial; return GetPixelFogCombo(); }
 
 	virtual void BindStandardVertexTexture( VertexTextureSampler_t sampler, StandardTextureId_t id ) = 0;
 

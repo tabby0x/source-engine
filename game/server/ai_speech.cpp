@@ -292,6 +292,23 @@ static const int LEN_SPECIFIC_SCENE_MODIFIER = strlen( AI_SPECIFIC_SCENE_MODIFIE
 //			NULL - 
 // Output : AI_Response
 //-----------------------------------------------------------------------------
+bool CAI_Expresser::SpeakFindResponse( AI_Response &outResponse, AIConcept_t concept, const char *modifiers /*= NULL*/ )
+{
+	AI_Response *pResponse = SpeakFindResponse( concept, modifiers );
+	if ( !pResponse )
+		return false;
+
+	outResponse = *pResponse;
+	delete pResponse;
+	return true;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Searches for a possible response
+// Input  : concept - 
+//			NULL - 
+// Output : AI_Response
+//-----------------------------------------------------------------------------
 AI_Response *CAI_Expresser::SpeakFindResponse( AIConcept_t concept, const char *modifiers /*= NULL*/ )
 {
 	IResponseSystem *rs = GetOuter()->GetResponseSystem();

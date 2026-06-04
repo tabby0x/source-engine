@@ -595,7 +595,7 @@ void CBaseTrigger::EndTouch(CBaseEntity *pOther)
 //-----------------------------------------------------------------------------
 // Purpose: Return true if the specified entity is touching us
 //-----------------------------------------------------------------------------
-bool CBaseTrigger::IsTouching( CBaseEntity *pOther )
+bool CBaseTrigger::IsTouching( const CBaseEntity *pOther ) const
 {
 	EHANDLE hOther;
 	hOther = pOther;
@@ -718,8 +718,8 @@ void CTriggerRemove::Touch( CBaseEntity *pOther )
 BEGIN_DATADESC( CTriggerHurt )
 
 	// Function Pointers
-	DEFINE_FUNCTION( RadiationThink ),
-	DEFINE_FUNCTION( HurtThink ),
+	DEFINE_FUNCTION( CTriggerHurtShim::RadiationThinkShim ),
+	DEFINE_FUNCTION( CTriggerHurtShim::HurtThinkShim ),
 
 	// Fields
 	DEFINE_FIELD( m_flOriginalDamage, FIELD_FLOAT ),
@@ -747,6 +747,7 @@ END_DATADESC()
 
 
 LINK_ENTITY_TO_CLASS( trigger_hurt, CTriggerHurt );
+IMPLEMENT_AUTO_LIST( ITriggerHurtAutoList );
 
 
 //-----------------------------------------------------------------------------
@@ -764,7 +765,7 @@ void CTriggerHurt::Spawn( void )
 	SetThink( NULL );
 	if (m_bitsDamageInflict & DMG_RADIATION)
 	{
-		SetThink ( &CTriggerHurt::RadiationThink );
+		SetThink ( &CTriggerHurtShim::RadiationThinkShim );
 		SetNextThink( gpGlobals->curtime + random->RandomFloat(0.0, 0.5) );
 	}
 }
@@ -957,7 +958,7 @@ void CTriggerHurt::Touch( CBaseEntity *pOther )
 {
 	if ( m_pfnThink == NULL )
 	{
-		SetThink( &CTriggerHurt::HurtThink );
+		SetThink( &CTriggerHurtShim::HurtThinkShim );
 		SetNextThink( gpGlobals->curtime );
 	}
 }
@@ -979,6 +980,21 @@ bool CTriggerHurt::KeyValue( const char *szKeyName, const char *szValue )
 	return true;
 }
 #endif
+
+//-----------------------------------------------------------------------------
+// Purpose: Checks if this point is in any trigger_hurt zones with positive damage.
+//-----------------------------------------------------------------------------
+bool IsTakingTriggerHurtDamageAtPoint( const Vector &vecPoint )
+{
+	for ( int i = 0; i < ITriggerHurtAutoList::AutoList().Count(); i++ )
+	{
+		CTriggerHurt *pTrigger = static_cast<CTriggerHurt*>( ITriggerHurtAutoList::AutoList()[i] );
+		if ( !pTrigger->m_bDisabled && pTrigger->PointIsWithin( vecPoint ) && pTrigger->m_flDamage > 0.0f )
+			return true;
+	}
+
+	return false;
+}
 
 
 // ##################################################################################

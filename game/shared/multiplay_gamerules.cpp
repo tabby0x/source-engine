@@ -1273,6 +1273,16 @@ ConVarRef suitcharger( "sk_suitcharger" );
 		}
 	}
 
+	void CMultiplayRules::LoadMapCycleFileIntoVector( const char *pszMapCycleFile, CUtlVector<char *> &mapList )
+	{
+		CMultiplayRules::RawLoadMapCycleFileIntoVector( pszMapCycleFile, mapList );
+	}
+
+	void CMultiplayRules::RawLoadMapCycleFileIntoVector( const char *pszMapCycleFile, CUtlVector<char *> &mapList )
+	{
+		CMultiplayRules::LoapMapCycleFileIntoVector( pszMapCycleFile, mapList );
+	}
+
 	void CMultiplayRules::LoapMapCycleFileIntoVector( const char *pszMapCycleFile, CUtlVector<char *> &mapList )
 	{
 		CUtlBuffer buf;
@@ -1359,7 +1369,7 @@ ConVarRef suitcharger( "sk_suitcharger" );
 		FreeMapCycleFileVector( m_MapList );
 
 		// Repopulate map list from mapcycle file
-		LoapMapCycleFileIntoVector( mapcfile, m_MapList );
+		LoadMapCycleFileIntoVector( mapcfile, m_MapList );
 
 		// Load server's mapcycle into network string table for client-side voting
 		if ( g_pStringTableServerMapCycle )

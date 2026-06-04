@@ -40,6 +40,53 @@ This project is using waf buildsystem. If you have waf-related questions look ht
 - [Building instructions(EN)](https://github.com/nillerusr/source-engine/wiki/Source-Engine-(EN))
 - [Building instructions(RU)](https://github.com/nillerusr/source-engine/wiki/Source-Engine-(RU))
 
+# TF2 port workflow
+This tree can build the x64 TF2 client/server port and mount content from a local
+retail Team Fortress 2 install. Retail content is not committed.
+
+1. Install Visual Studio 2019 or newer with the C++ desktop workload and install
+   Python 3 with the Windows `py.exe` launcher.
+2. Copy `.tf2local.example.json` to `.tf2local.json` and set
+   `tf2InstallPath` to your retail TF2 install, for example:
+
+   ```json
+   {
+     "tf2InstallPath": "D:\\SteamLibrary\\steamapps\\common\\Team Fortress 2",
+     "buildDir": "build_tf_x64"
+   }
+   ```
+
+3. Build TF2:
+
+   ```powershell
+   .\scripts\build_tf2.ps1 -Configuration Release -Jobs 30
+   ```
+
+   `Development` uses release optimization but passes `--debug-engine`, which
+   enables development-only cvars. `Debug` uses debug optimization and also
+   passes `--debug-engine`.
+
+4. Generate a Visual Studio 2019 solution:
+
+   ```powershell
+   .\scripts\generate_vs2019_solution.ps1 -Jobs 30
+   ```
+
+   Open `source-engine-tf2.sln` and choose `TF2 Release`, `TF2 Development`, or
+   `TF2 Debug`. The generated project is an NMake wrapper around Waf, so command
+   line and IDE builds use the same build system.
+
+5. Launch locally:
+
+   ```bat
+   launch_tf2_steam.bat
+   ```
+
+   The launcher regenerates `build_tf_x64\tf\gameinfo.txt` from `.tf2local.json`
+   before startup, mounts retail TF2 VPKs plus `tf/custom/*`, uses the retail
+   Steam API DLL, treats inventory as read-only, and always launches with
+   `-insecure -windowed -w 1920 -h 1080`.
+
 # Support me
 BTC: `bc1qnjq92jj9uqjtafcx2zvnwd48q89hgtd6w8a6na`
 

@@ -15,6 +15,10 @@
 #include "characterset.h"
 #include "sceneentity.h"		// for exposing scene precache function
 #include "gamerules.h"
+#ifdef TF_DLL
+#include "NextBot/NextBotInterface.h"
+#include "NextBot/NextBotComponentInterface.h"
+#endif
 #include "vscript_server.nut"
 #ifdef MAPBASE_VSCRIPT
 #include "world.h"
@@ -882,6 +886,24 @@ CVScriptGameSystem g_VScriptGameSystem;
 #ifdef MAPBASE_VSCRIPT
 ConVar script_allow_entity_creation_midgame( "script_allow_entity_creation_midgame", "1", FCVAR_NOT_CONNECTED, "Allows VScript files to create entities mid-game, as opposed to only creating entities on startup." );
 #endif
+#ifdef TF_DLL
+bool INextBotComponentScriptInstanceHelper::ToString( void *p, char *pBuf, int bufSize )
+{
+	INextBotComponent *pNextBotComponent = (INextBotComponent *)p;
+	if ( pNextBotComponent && pNextBotComponent->GetBot() )
+	{
+		V_snprintf( pBuf, bufSize, "([%d] NextBotComponent)", pNextBotComponent->GetBot()->GetBotId() );
+	}
+	else
+	{
+		V_snprintf( pBuf, bufSize, "(Invalid NextBotComponent)" );
+	}
+	return true;
+}
+
+INextBotComponentScriptInstanceHelper g_NextBotComponentScriptInstanceHelper;
+#endif
+
 
 bool IsEntityCreationAllowedInScripts( void )
 {

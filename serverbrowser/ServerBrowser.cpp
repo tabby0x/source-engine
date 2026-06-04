@@ -322,7 +322,7 @@ bool CServerBrowser::OpenGameInfoDialog( uint64 ulSteamIDFriend, const char *psz
 		if ( steamapicontext->SteamFriends()->GetFriendGamePlayed( ulSteamIDFriend, &friendGameInfo ) )
 		{
 			uint16 usConnPort = friendGameInfo.m_usGamePort;
-			if ( friendGameInfo.m_usQueryPort < QUERY_PORT_ERROR )
+			if ( friendGameInfo.m_usQueryPort < FriendGameInfo_t::QUERY_PORT_ERROR )
 				usConnPort = friendGameInfo.m_usQueryPort;
 			CDialogGameInfo *pDialogGameInfo = m_hInternetDlg->OpenGameInfoDialog( friendGameInfo.m_unGameIP, friendGameInfo.m_usGamePort, usConnPort, pszConnectCode );
 			pDialogGameInfo->SetFriend( ulSteamIDFriend );

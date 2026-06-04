@@ -142,7 +142,7 @@ typedef enum
 	VOTE_FAILED_ISSUE_DISABLED,
 	VOTE_FAILED_MAP_NOT_FOUND,
 	VOTE_FAILED_MAP_NAME_REQUIRED,
-	VOTE_FAILED_FAILED_RECENTLY,
+	VOTE_FAILED_ON_COOLDOWN,
 	VOTE_FAILED_TEAM_CANT_CALL,
 	VOTE_FAILED_WAITINGFORPLAYERS,
 	VOTE_FAILED_PLAYERNOTFOUND,
@@ -153,10 +153,19 @@ typedef enum
 	VOTE_FAILED_MAP_NOT_VALID,
 	VOTE_FAILED_CANNOT_KICK_FOR_TIME,
 	VOTE_FAILED_CANNOT_KICK_DURING_ROUND,
+	VOTE_FAILED_VOTE_IN_PROGRESS,
+	VOTE_FAILED_KICK_LIMIT_REACHED,
+	VOTE_FAILED_KICK_DENIED_BY_GC,
+	VOTE_FAILED_REQUEST_HANDLED_BY_ISSUE,
 
 	// TF-specific?
 	VOTE_FAILED_MODIFICATION_ALREADY_ACTIVE,
+
+	VOTE_FAILED_PLAYER_TRANSITIONING,
+	VOTE_FAILED_INVALID_ARGUMENT,
 } vote_create_failed_t;
+
+#define VOTE_FAILED_FAILED_RECENTLY VOTE_FAILED_ON_COOLDOWN
 
 enum
 {
@@ -174,12 +183,16 @@ enum
 
 enum CastVote
 {
-	VOTE_OPTION1,  // Use this for Yes
-	VOTE_OPTION2,  // Use this for No
-	VOTE_OPTION3,
-	VOTE_OPTION4,
-	VOTE_OPTION5,
-	VOTE_UNCAST
+	VOTE_OPTION1 = 0,  // Use this for Yes
+	VOTE_OPTION2 = 1,  // Use this for No
+	VOTE_OPTION3 = 2,
+	VOTE_OPTION4 = 3,
+	VOTE_OPTION5 = 4,
+	VOTE_UNCAST  = 5,
+
+	// Alias yes/no to OPTION1/OPTION2
+	VOTE_YES = 0,
+	VOTE_NO  = 1,
 };
 
 //===================================================================================================================
@@ -204,7 +217,18 @@ enum CastVote
 #define HIDEHUD_INVEHICLE			( 1<<10 )
 #define HIDEHUD_BONUS_PROGRESS		( 1<<11 )	// Hide bonus progress display (for bonus map challenges)
 
+#if defined( TF_DLL ) || defined ( TF_CLIENT_DLL )
+#define HIDEHUD_BUILDING_STATUS		( 1<<12 )	// Hide Engineer building status
+#define HIDEHUD_CLOAK_AND_FEIGN		( 1<<13 )	// Hide item effect meter (cloak, etc)
+#define HIDEHUD_PIPES_AND_CHARGE	( 1<<14 )	// Hide demo hud
+#define HIDEHUD_METAL				( 1<<15 )	// Metal/account hud
+#define HIDEHUD_TARGET_ID			( 1<<16 )	// Target ID
+#define HIDEHUD_MATCH_STATUS		( 1<<17 )	// Hide match status
+#define HIDEHUD_BITCOUNT			18
+#else
+
 #define HIDEHUD_BITCOUNT			12
+#endif
 
 //===================================================================================================================
 // suit usage bits
@@ -228,9 +252,22 @@ enum CastVote
 //Since this is decided by the gamerules (and it can be whatever number as long as its less than MAX_PLAYERS).
 #if defined( CSTRIKE_DLL )
 	#define MAX_PLAYERS				65  // Absolute max players supported
+#elif defined( TF_DLL ) || defined ( TF_CLIENT_DLL ) || defined( HL2MP )
+	#define MAX_PLAYERS				101
 #else
 	#define MAX_PLAYERS				33  // Absolute max players supported
 #endif
+
+// Accounts for code that indexes player arrays by entindex rather than player index.
+#define MAX_PLAYERS_ARRAY_SAFE		( MAX_PLAYERS + 1 )
+
+inline bool IsIndexIntoPlayerArrayValid( int iIndex )
+{
+	if ( iIndex < 0 || iIndex >= MAX_PLAYERS_ARRAY_SAFE )
+		return false;
+
+	return true;
+}
 
 #define MAX_PLACE_NAME_LENGTH		18
 
@@ -249,6 +286,7 @@ enum CastVote
 #define FIRST_GAME_TEAM			(LAST_SHARED_TEAM+1)
 
 #define MAX_TEAMS				32	// Max number of teams in a game
+#define MAX_TEAMS_ARRAY_SAFE	MAX_TEAMS
 #define MAX_TEAM_NAME_LENGTH	32	// Max length of a team's name
 
 // Weapon m_iState
@@ -457,6 +495,7 @@ enum {
 	OBS_MODE_FIXED,		// view from a fixed camera position
 	OBS_MODE_IN_EYE,	// follow a player in first person view
 	OBS_MODE_CHASE,		// follow a player in third person view
+	OBS_MODE_POI,		// PASSTIME point of interest; kept before roaming for "< OBS_MODE_ROAMING" checks
 	OBS_MODE_ROAMING,	// free roaming
 
 	NUM_OBSERVER_MODES,
@@ -603,7 +642,7 @@ enum
 	EFL_DIRTY_ABSANGVELOCITY =	(1<<13),
 	EFL_DIRTY_SURROUNDING_COLLISION_BOUNDS	= (1<<14),
 	EFL_DIRTY_SPATIAL_PARTITION = (1<<15),
-//	UNUSED						= (1<<16),
+	EFL_FORCE_ALLOW_MOVEPARENT	= (1<<16),
 
 	EFL_IN_SKYBOX =				(1<<17),	// This is set if the entity detects that it's in the skybox.
 											// This forces it to pass the "in PVS" for transmission.
@@ -690,6 +729,7 @@ struct FireBulletsInfo_t
 		m_vecDirShooting.Init( VEC_T_NAN, VEC_T_NAN, VEC_T_NAN );
 #endif
 		m_bPrimaryAttack = true;
+		m_bUseServerRandomSeed = false;
 	}
 
 	FireBulletsInfo_t( int nShots, const Vector &vecSrc, const Vector &vecDir, const Vector &vecSpread, float flDistance, int nAmmoType, bool bPrimaryAttack = true )
@@ -708,6 +748,7 @@ struct FireBulletsInfo_t
 		m_pAdditionalIgnoreEnt = NULL;
 		m_flDamageForceScale = 1.0f;
 		m_bPrimaryAttack = bPrimaryAttack;
+		m_bUseServerRandomSeed = false;
 	}
 
 #ifdef MAPBASE
@@ -728,6 +769,7 @@ struct FireBulletsInfo_t
 	CBaseEntity *m_pAttacker;
 	CBaseEntity *m_pAdditionalIgnoreEnt;
 	bool m_bPrimaryAttack;
+	bool m_bUseServerRandomSeed;
 #ifdef MAPBASE
 	// This variable is like m_pAdditionalIgnoreEnt, but it's a list of entities instead of just one.
 	// Since func_tanks already use m_pAdditionalIgnoreEnt for parents, they needed another way to stop hitting their controllers.

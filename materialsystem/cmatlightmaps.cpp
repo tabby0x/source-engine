@@ -429,7 +429,9 @@ void CMatLightmaps::EndLightmapAllocation()
 //-----------------------------------------------------------------------------
 void CMatLightmaps::AllocateLightmapTexture( int lightmap )
 {
-	bool bUseDynamicTextures = HardwareConfig()->PreferDynamicTextures();
+	// Lightmaps are updated from the CPU after allocation. On D3D9Ex, managed
+	// textures are converted to default-pool textures, which are not lockable.
+	bool bUseDynamicTextures = true;
 
 	int flags = bUseDynamicTextures ? TEXTURE_CREATE_DYNAMIC : TEXTURE_CREATE_MANAGED;
 
@@ -670,11 +672,22 @@ bool CMatLightmaps::LockLightmap( int lightmap )
 	{
 		g_pShaderAPI->TexUnlock();
 	}
+
+	if ( lightmap < 0 || lightmap >= m_LightmapPageTextureHandles.Count() ||
+		 m_LightmapPageTextureHandles[lightmap] == INVALID_SHADERAPI_TEXTURE_HANDLE )
+	{
+		ExecuteNTimes( 10, Warning( "Lightmap page %d has no valid texture handle\n", lightmap ) );
+		return false;
+	}
+
 	g_pShaderAPI->ModifyTexture( m_LightmapPageTextureHandles[lightmap] );
 	int pageWidth  = m_pLightmapPages[lightmap].m_Width;
 	int pageHeight = m_pLightmapPages[lightmap].m_Height;
 	if (!g_pShaderAPI->TexLock( 0, 0, 0, 0,	pageWidth, pageHeight, m_LightmapPixelWriter ))
 	{
+		ExecuteNTimes( 10, Warning( "Lightmap TexLock failed for page %d, handle %p, size %dx%d, hdr %d, dynamic %d\n",
+			lightmap, (void *)m_LightmapPageTextureHandles[lightmap], pageWidth, pageHeight,
+			HardwareConfig()->GetHDRType(), IsDynamicLightmap( lightmap ) ? 1 : 0 ) );
 		Assert( 0 );
 		return false;
 	}

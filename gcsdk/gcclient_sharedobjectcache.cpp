@@ -139,7 +139,7 @@ CGCClientSharedObjectTypeCache::~CGCClientSharedObjectTypeCache()
 //----------------------------------------------------------------------------
 // Purpose: Parses a cache subscribed message.
 //----------------------------------------------------------------------------
-bool CGCClientSharedObjectTypeCache::BParseCacheSubscribedMsg( const CMsgSOCacheSubscribed_SubscribedType & msg, CUtlVector<CSharedObject*> &vecCreatedObjects, CUtlVector<CSharedObject*> &vecUpdatedObjects, CUtlVector<CSharedObject*> &vecObjectsToDestroy )
+bool CGCClientSharedObjectTypeCache::BParseCacheSubscribedMsg( const CMsgSOCacheSubscribed_SubscribedType & msg, CUtlVector<CSharedObject*> &vecCreatedObjects, CUtlVector<CSharedObject*> &vecUpdatedObjects, CUtlVector<CSharedObject*> &vecObjectsToDestroy, bool bLocal )
 {
 	CSharedObjectVec vecUntouchedObjects;
 	for ( uint32 i = 0; i < GetCount(); i++ )
@@ -147,12 +147,21 @@ bool CGCClientSharedObjectTypeCache::BParseCacheSubscribedMsg( const CMsgSOCache
 		vecUntouchedObjects.AddToTail( GetObject( i ) );
 	}
 
+	bool bHadLocalParseFailure = false;
+
 	for( uint16 usObject = 0; usObject < msg.object_data_size(); usObject++ )
 	{
 		bool bUpdatedExisting = false;
 		CSharedObject *pObject = BCreateFromMsg( msg.object_data( usObject ).data(), msg.object_data( usObject ).size(), &bUpdatedExisting );
 		if ( pObject == NULL)
 		{
+			if ( bLocal )
+			{
+				Warning( "Local SO cache skipped object type %d index %u (%u bytes)\n", GetTypeID(), usObject, (uint32)msg.object_data( usObject ).size() );
+				bHadLocalParseFailure = true;
+				continue;
+			}
+
 			Assert( pObject );
 			return false;
 		}
@@ -171,6 +180,12 @@ bool CGCClientSharedObjectTypeCache::BParseCacheSubscribedMsg( const CMsgSOCache
 		{
 			vecCreatedObjects.AddToTail( pObject );
 		}
+	}
+
+	if ( bHadLocalParseFailure )
+	{
+		Warning( "Local SO cache kept partial object type %d data; refresh remains read-only\n", GetTypeID() );
+		return true;
 	}
 
 	// all objects that weren't in the SubscribedMsg should be destroyed
@@ -310,7 +325,8 @@ bool CGCClientSharedObjectTypeCache::BUpdateFromMsg( const void *pvData, uint32 
 CGCClientSharedObjectCache::CGCClientSharedObjectCache( const CSteamID & steamIDOwner ) 
 	: m_context( steamIDOwner ),
 	m_bInitialized( false ),
-	m_bSubscribed( false )
+	m_bSubscribed( false ),
+	m_bLocal( false )
 {
 
 }
@@ -327,8 +343,12 @@ CGCClientSharedObjectCache::~CGCClientSharedObjectCache()
 //----------------------------------------------------------------------------
 // Purpose: Process an incoming create message on a client/gameserver.
 //----------------------------------------------------------------------------
-bool CGCClientSharedObjectCache::BParseCacheSubscribedMsg( const CMsgSOCacheSubscribed & msg )
+bool CGCClientSharedObjectCache::BParseCacheSubscribedMsg( const CMsgSOCacheSubscribed & msg, bool bLocal )
 {
+	if ( bLocal )
+	{
+		m_bLocal = true;
+	}
 
 	// Assume all type caches will be untouched
 	CUtlVector<int> vecUntouchedTypes;
@@ -364,8 +384,15 @@ bool CGCClientSharedObjectCache::BParseCacheSubscribedMsg( const CMsgSOCacheSubs
 			}
 		}
 		Assert( pTypeCache );
-		if( !pTypeCache || !pTypeCache->BParseCacheSubscribedMsg( msgType, vecCreatedObjects, vecUpdatedObjects, vecObjectsToDestroy ) )
+		if( !pTypeCache || !pTypeCache->BParseCacheSubscribedMsg( msgType, vecCreatedObjects, vecUpdatedObjects, vecObjectsToDestroy, bLocal ) )
+		{
+			if ( bLocal )
+			{
+				Warning( "Local SO cache skipped subscribed object type %d with %d objects\n", msgType.type_id(), msgType.object_data_size() );
+				continue;
+			}
 			bResult = false;
+		}
 	}
 
 	// any type caches that weren't in the SubscribedMsg should be cleared
@@ -385,7 +412,7 @@ bool CGCClientSharedObjectCache::BParseCacheSubscribedMsg( const CMsgSOCacheSubs
 
 	// Set version, assuming we didn't have any problems.  If we hit any problems,
 	// we want to force a refresh
-	if ( bResult )
+	if ( bResult || bLocal )
 		SetVersion( msg.version() );
 
 	// Mark that the cache has been initialized by the server

@@ -1300,7 +1300,7 @@ void Host_WriteConfiguration( const char *filename, bool bAllVars )
 
 		if ( pRemoteStorage )
 		{
-			int32 availableBytes, totalBytes = 0;
+			uint64 availableBytes, totalBytes = 0;
 			if ( pRemoteStorage->GetQuota( &totalBytes, &availableBytes ) )
 			{
 				if ( totalBytes > 0 )

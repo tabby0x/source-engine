@@ -363,8 +363,11 @@ public:
 
 	MenuItem* AddMenuItem( const char *pszButtonText, const char *pszCommand, const char *pszCategoryName );
 	MenuItem* AddMenuItem( const char *pszButtonText, KeyValues *kvUserData, const char *pszCategoryName );
+	MenuItem* AddMenuItem( const wchar_t *pwszButtonText, const char *pszCommand, const char *pszCategoryName );
+	MenuItem* AddMenuItem( const wchar_t *pwszButtonText, KeyValues *kvUserData, const char *pszCategoryName );
 
 	MenuItem* AddCascadingMenuItem( const char *pszButtonText, Menu *pSubMenu, const char *pszCategoryName );
+	MenuItem* AddCascadingMenuItem( const wchar_t *pwszButtonText, Menu *pSubMenu, const char *pszCategoryName );
 
 private:
 

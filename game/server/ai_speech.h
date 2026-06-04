@@ -159,6 +159,7 @@ public:
 	bool Speak( AIConcept_t concept, const char *modifiers = NULL, char *pszOutResponseChosen = NULL, size_t bufsize = 0, IRecipientFilter *filter = NULL );
 
 	// These two methods allow looking up a response and dispatching it to be two different steps
+	bool SpeakFindResponse( AI_Response &response, AIConcept_t concept, const char *modifiers = NULL );
 	AI_Response *SpeakFindResponse( AIConcept_t concept, const char *modifiers = NULL );
 	bool SpeakDispatchResponse( AIConcept_t concept, AI_Response *response, IRecipientFilter *filter = NULL );
 	float GetResponseDuration( AI_Response *response );
@@ -290,6 +291,7 @@ public:
 	virtual bool 	Speak( AIConcept_t concept, const char *modifiers = NULL, char *pszOutResponseChosen = NULL, size_t bufsize = 0, IRecipientFilter *filter = NULL );
 
 	// These two methods allow looking up a response and dispatching it to be two different steps
+	bool 			SpeakFindResponse( AI_Response &response, AIConcept_t concept, const char *modifiers = NULL );
 	AI_Response *	SpeakFindResponse( AIConcept_t concept, const char *modifiers = NULL );
 	bool 			SpeakDispatchResponse( AIConcept_t concept, AI_Response *response );
 	virtual void	PostSpeakDispatchResponse( AIConcept_t concept, AI_Response *response ) { return; }
@@ -362,6 +364,14 @@ inline IResponseSystem *CAI_ExpresserHost<BASE_NPC>::GetResponseSystem()
 	extern IResponseSystem *g_pResponseSystem;
 	// Expressive NPC's use the general response system
 	return g_pResponseSystem;
+}
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+template <class BASE_NPC>
+inline bool CAI_ExpresserHost<BASE_NPC>::SpeakFindResponse( AI_Response &response, AIConcept_t concept, const char *modifiers /*= NULL*/ )
+{
+	return this->GetExpresser()->SpeakFindResponse( response, concept, modifiers );
 }
 
 //-----------------------------------------------------------------------------

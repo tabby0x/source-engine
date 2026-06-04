@@ -87,6 +87,7 @@ class CFuncLadder;
 class CNavArea;
 class CHintSystem;
 class CAI_Expresser;
+class CVoteController;
 
 #if defined USES_ECON_ITEMS
 class CEconWearable;
@@ -373,7 +374,7 @@ public:
 	const char *			GetPlayerName() { return m_szNetname; }
 	void					SetPlayerName( const char *name );
 
-	int						GetUserID() { return engine->GetPlayerUserId( edict() ); }
+	int						GetUserID() const { return engine->GetPlayerUserId( edict() ); }
 	const char *			GetNetworkIDString(); 
 	virtual const Vector	GetPlayerMins( void ) const; // uses local player
 	virtual const Vector	GetPlayerMaxs( void ) const; // uses local player
@@ -437,6 +438,7 @@ public:
 	virtual bool			Weapon_ShouldSelectItem( CBaseCombatWeapon *pWeapon );
 	void					Weapon_DropSlot( int weaponSlot );
 	CBaseCombatWeapon		*Weapon_GetLast( void ) { return m_hLastWeapon.Get(); }
+	CBaseCombatWeapon		*GetLastWeapon( void ) { return m_hLastWeapon.Get(); }
 
 	virtual void			OnMyWeaponFired( CBaseCombatWeapon *weapon );	// call this when this player fires a weapon to allow other systems to react
 	virtual float			GetTimeSinceWeaponFired( void ) const;			// returns the time, in seconds, since this player fired a weapon
@@ -485,6 +487,7 @@ public:
 	bool					IsSinglePlayerGameEnding() { return m_bSinglePlayerGameEnding == true; }
 
 	bool					HandleVoteCommands( const CCommand &args );
+	virtual CVoteController *GetTeamVoteController();
 	
 	// Observer functions
 	virtual bool			StartObserverMode(int mode); // true, if successful
@@ -614,11 +617,12 @@ public:
 
 	// Team Handling
 	virtual void			ChangeTeam( int iTeamNum ) { ChangeTeam(iTeamNum,false, false); }
-	virtual void			ChangeTeam( int iTeamNum, bool bAutoTeam, bool bSilent );
+	virtual void			ChangeTeam( int iTeamNum, bool bAutoTeam, bool bSilent, bool bAutoBalance = false );
 
 	// say/sayteam allowed?
 	virtual bool		CanHearAndReadChatFrom( CBasePlayer *pPlayer ) { return true; }
 	virtual bool		CanSpeak( void ) { return true; }
+	virtual bool		CanPlayerTalk();
 
 	audioparams_t			&GetAudioParams() { return m_Local.m_audio; }
 
@@ -760,7 +764,10 @@ public:
 	bool	IsPredictingWeapons( void ) const; 
 	int		CurrentCommandNumber() const;
 	const CUserCmd *GetCurrentUserCommand() const;
+	int		GetLockViewanglesTickNumber() const { return m_iLockViewanglesTickNumber; }
+	QAngle	GetLockViewanglesData() const { return m_qangLockViewangles; }
 
+	bool	IsLerpingFOV( void ) const;
 	int		GetFOV( void );														// Get the current FOV value
 	int		GetDefaultFOV( void ) const;										// Default FOV if not specified otherwise
 	int		GetFOVForNetworking( void );										// Get the current FOV used for network computations
@@ -810,6 +817,8 @@ public:
 #endif
 
 	float GetRemainingMovementTimeForUserCmdProcessing() const { return m_flMovementTimeForUserCmdProcessingRemaining; }
+	float GetTimeSinceLastObjective( void ) const { return ( m_flLastObjectiveTime == -1.f ) ? 999.f : gpGlobals->curtime - m_flLastObjectiveTime; }
+	void SetLastObjectiveTime( float flTime ) { m_flLastObjectiveTime = flTime; }
 	float ConsumeMovementTimeForUserCmdProcessing( float flTimeNeeded )
 	{
 		if ( m_flMovementTimeForUserCmdProcessingRemaining <= 0.0f )
@@ -834,6 +843,7 @@ public:
 private:
 	// How much of a movement time buffer can we process from this user?
 	float				m_flMovementTimeForUserCmdProcessingRemaining;
+	float				m_flLastObjectiveTime;
 
 	// For queueing up CUserCmds and running them from PhysicsSimulate
 	int					GetCommandContextCount( void ) const;
@@ -905,6 +915,7 @@ public:
 	float					m_fLerpTime;		// users cl_interp
 	bool					m_bLagCompensation;	// user wants lag compenstation
 	bool					m_bPredictWeapons; //  user has client side predicted weapons
+	bool					m_bRequestPredict; // user has client prediction enabled
 	
 	float		GetDeathTime( void ) { return m_flDeathTime; }
 
@@ -1084,6 +1095,8 @@ protected:
 	// Last received usercmd (in case we drop a lot of packets )
 	CUserCmd				m_LastCmd;
 	CUserCmd				*m_pCurrentCommand;
+	int						m_iLockViewanglesTickNumber;
+	QAngle					m_qangLockViewangles;
 
 	float					m_flStepSoundTime;	// time to check for next footstep sound
 
@@ -1241,6 +1254,7 @@ private:
 
 public:
 	virtual unsigned int PlayerSolidMask( bool brushOnly = false ) const;	// returns the solid mask for the given player, so bots can have a more-restrictive set
+	virtual bool BHaveChatSuspensionInCurrentMatch() { return false; }
 	short				m_sMousedx;
 	short				m_sMousedy;
 
@@ -1579,5 +1593,8 @@ enum
 	VEHICLE_ANALOG_BIAS_FORWARD,
 	VEHICLE_ANALOG_BIAS_REVERSE,
 };
+
+class CSendProxyRecipients;
+void* SendProxy_SendNonLocalDataTable( const SendProp *pProp, const void *pStruct, const void *pVarData, CSendProxyRecipients *pRecipients, int objectID );
 
 #endif // PLAYER_H

@@ -575,6 +575,8 @@ public:
 	virtual void DisconnectInternal() = 0;
 
 	virtual int GetInstancesRunningCount( ) = 0;
+
+	virtual void SetRichPresenceConnect( const char *pszOverride ) = 0;
 };
 
 

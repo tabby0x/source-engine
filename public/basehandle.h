@@ -17,6 +17,11 @@
 
 class IHandleEntity;
 
+enum INVALID_EHANDLE_tag
+{
+	INVALID_EHANDLE
+};
+
 
 // -------------------------------------------------------------------------------------------------- //
 // CBaseHandle.
@@ -29,9 +34,14 @@ friend class CBaseEntityList;
 public:
 
 	CBaseHandle();
+	CBaseHandle( INVALID_EHANDLE_tag );
 	CBaseHandle( const CBaseHandle &other );
 	CBaseHandle( uintp value );
 	CBaseHandle( int iEntry, int iSerialNumber );
+
+	// NOTE: The following constructor is not type-safe, and can allow creating an
+	//       arbitrary CBaseHandle that doesn't necessarily point to an actual object.
+	static CBaseHandle UnsafeFromIndex( int index );
 
 	void Init( int iEntry, int iSerialNumber );
 	void Term();
@@ -75,6 +85,11 @@ inline CBaseHandle::CBaseHandle()
 	m_Index = INVALID_EHANDLE_INDEX;
 }
 
+inline CBaseHandle::CBaseHandle( INVALID_EHANDLE_tag )
+{
+	m_Index = INVALID_EHANDLE_INDEX;
+}
+
 inline CBaseHandle::CBaseHandle( const CBaseHandle &other )
 {
 	m_Index = other.m_Index;
@@ -88,6 +103,13 @@ inline CBaseHandle::CBaseHandle( uintp value )
 inline CBaseHandle::CBaseHandle( int iEntry, int iSerialNumber )
 {
 	Init( iEntry, iSerialNumber );
+}
+
+inline CBaseHandle CBaseHandle::UnsafeFromIndex( int index )
+{
+	CBaseHandle ret;
+	ret.m_Index = index;
+	return ret;
 }
 
 inline void CBaseHandle::Init( int iEntry, int iSerialNumber )

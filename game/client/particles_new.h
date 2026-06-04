@@ -90,6 +90,8 @@ public:
 	void SetControlPointForwardVector( int nWhichPoint, const Vector &v );
 	void SetControlPointUpVector( int nWhichPoint, const Vector &v );
 	void SetControlPointRightVector( int nWhichPoint, const Vector &v );
+	void SetIsViewModelEffect( bool bIsViewModelEffect ) { m_bViewModelEffect = bIsViewModelEffect; }
+	bool GetIsViewModelEffect() { return m_bViewModelEffect; }
 
 	FORCEINLINE EHANDLE const &GetControlPointEntity( int nWhichPoint )
 	{
@@ -152,6 +154,7 @@ protected:
 	// holds the min/max bounds used to manage this thing in the client leaf system
 	Vector		m_LastMin;
 	Vector		m_LastMax;
+	bool		m_bViewModelEffect;
 
 private:
 	// Update the reference count.

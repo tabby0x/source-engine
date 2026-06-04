@@ -40,6 +40,7 @@ class C_BaseClientShader
 class IRagdoll;
 class CIKContext;
 class CIKState;
+class IMaterial;
 class ConVar;
 class C_RopeKeyframe;
 class CBoneBitList;
@@ -148,6 +149,7 @@ public:
 	virtual void UpdateIKLocks( float currentTime );
 	virtual void CalculateIKLocks( float currentTime );
 	virtual bool ShouldDraw();
+	virtual void UpdateVisibility() OVERRIDE;
 	virtual int DrawModel( int flags );
 	virtual int	InternalDrawModel( int flags );
 	virtual bool OnInternalDrawModel( ClientModelRenderInfo_t *pInfo );
@@ -157,6 +159,7 @@ public:
 	//
 	virtual CMouthInfo *GetMouth();
 	virtual void	ControlMouth( CStudioHdr *pStudioHdr );
+	virtual IMaterial* GetEconWeaponMaterialOverride( int iTeam ) { return NULL; }
 	
 	// override in sub-classes
 	virtual void DoAnimationEvents( CStudioHdr *pStudio );
@@ -303,8 +306,8 @@ public:
 	virtual void					Clear( void );
 	void							ClearRagdoll();
 	void							CreateUnragdollInfo( C_BaseAnimating *pRagdoll );
-	void							ForceSetupBonesAtTime( matrix3x4_t *pBonesOut, float flTime );
-	virtual void					GetRagdollInitBoneArrays( matrix3x4_t *pDeltaBones0, matrix3x4_t *pDeltaBones1, matrix3x4_t *pCurrentBones, float boneDt );
+	bool							ForceSetupBonesAtTime( matrix3x4_t *pBonesOut, float flTime );
+	virtual bool					GetRagdollInitBoneArrays( matrix3x4_t *pDeltaBones0, matrix3x4_t *pDeltaBones1, matrix3x4_t *pCurrentBones, float boneDt );
 
 	// For shadows rendering the correct body + sequence...
 	virtual int GetBody()			{ return m_nBody; }
@@ -656,6 +659,7 @@ private:
 	unsigned char m_nOldMuzzleFlashParity;
 
 	bool							m_bInitModelEffects;
+	bool							m_bHasAttachedParticles;
 
 	// Dynamic models
 	bool							m_bDynamicModelAllowed;

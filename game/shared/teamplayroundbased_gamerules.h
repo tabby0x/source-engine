@@ -12,6 +12,7 @@
 
 #include "teamplay_gamerules.h"
 #include "teamplay_round_timer.h"
+#include "GameEventListener.h"
 
 #ifdef GAME_DLL
 #include "team_control_point.h"
@@ -88,6 +89,16 @@ enum {
 	WINREASON_TIMELIMIT,
 	WINREASON_WINLIMIT,
 	WINREASON_WINDIFFLIMIT,
+#if defined( TF_CLIENT_DLL ) || defined( TF_DLL )
+	WINREASON_RD_REACTOR_CAPTURED,
+	WINREASON_RD_CORES_COLLECTED,
+	WINREASON_RD_REACTOR_RETURNED,
+	WINREASON_PD_POINTS,
+	WINREASON_SCORED,
+	WINREASON_STOPWATCH_WATCHING_ROUNDS,
+	WINREASON_STOPWATCH_WATCHING_FINAL_ROUND,
+	WINREASON_STOPWATCH_PLAYING_ROUNDS,
+#endif
 };
 
 enum stalemate_reasons_t
@@ -157,7 +168,7 @@ public:
 //-----------------------------------------------------------------------------
 // Purpose: Teamplay game rules that manage a round based structure for you
 //-----------------------------------------------------------------------------
-class CTeamplayRoundBasedRules : public CTeamplayRules
+class CTeamplayRoundBasedRules : public CTeamplayRules, public CGameEventListener
 {
 	DECLARE_CLASS( CTeamplayRoundBasedRules, CTeamplayRules );
 public:
@@ -227,13 +238,14 @@ public:
 	virtual void HandleTeamScoreModify( int iTeam, int iScore) {  };
 
 
-	float GetRoundRestartTime( void ) { return m_flRestartRoundTime; }
+	float GetRoundRestartTime( void ) const { return m_flRestartRoundTime; }
+	float GetStateTransitionTime( void );
 
 	//Arena Mode
-	virtual bool	IsInArenaMode( void ) { return false; }
+	virtual bool	IsInArenaMode( void ) const { return false; }
 
 	//Koth Mode
-	virtual bool	IsInKothMode( void ) { return false; }
+	virtual bool	IsInKothMode( void ) const { return false; }
 
 	//Training Mode
 	virtual bool	IsInTraining( void ) { return false; }
@@ -242,7 +254,9 @@ public:
 	void SetMultipleTrains( bool bMultipleTrains ){ m_bMultipleTrains = bMultipleTrains; }
 	bool HasMultipleTrains( void ){ return m_bMultipleTrains; }
 
-	virtual int		GetBonusRoundTime( void );
+	virtual int		GetBonusRoundTime( bool bGameOver = false );
+	CTeamRoundTimer *GetActiveRoundTimer( void );
+	void SetAllowBetweenRounds( bool bValue ) { m_bAllowBetweenRounds = bValue; }
 
 #if defined(TF_CLIENT_DLL) || defined(TF_DLL)
 
@@ -254,6 +268,11 @@ public:
 	// to end up on the defending team (not yet connected or assigned a team)
 	void GetMvMPotentialDefendersLobbyPlayerInfo( CUtlVector<LobbyPlayerInfo_t> &vecMvmDefenders, bool bIncludeBots = false );
 
+#endif
+
+#ifdef CLIENT_DLL
+public: // IGameEventListener interface
+	virtual void FireGameEvent( IGameEvent * event );
 #endif
 
 	//----------------------------------------------------------------------------------
@@ -278,7 +297,7 @@ public:
 	virtual void	SendTeamScoresEvent( void ) { return; }
 
 	// Send the end of round info displayed in the win panel
-	virtual void	SendWinPanelInfo( void ) { return; }
+	virtual void	SendWinPanelInfo( bool bGameOver ) { return; }
 
 	// Setup spawn points for the current round before it starts
 	virtual void	SetupSpawnPointsForRound( void ) { return; }
@@ -297,13 +316,14 @@ public:
 	virtual void	BetweenRounds_End( void ) { return; }
 	virtual void	BetweenRounds_Think( void ) { return; }
 
+	virtual void	PreRound_Start( void ) { return; }
 	virtual void	PreRound_End( void ) { return; }
 
 	bool PrevRoundWasWaitingForPlayers() { return m_bPrevRoundWasWaitingForPlayers; }
 
 	virtual bool ShouldScorePerRound( void ){ return true; }
 
-	bool CheckNextLevelCvar( void );
+	bool CheckNextLevelCvar( bool bAllowEnd = true );
 
 	virtual bool TimerMayExpire( void );
 
@@ -316,7 +336,7 @@ public:
 public:
 	void State_Transition( gamerules_roundstate_t newState );
 
-	void RespawnPlayers( bool bForceRespawn, bool bTeam = false, int iTeam = TEAM_UNASSIGNED );
+	virtual void RespawnPlayers( bool bForceRespawn, bool bTeam = false, int iTeam = TEAM_UNASSIGNED );
 
 	void SetForceMapReset( bool reset );
 
@@ -326,7 +346,7 @@ public:
 	bool IsPreviouslyPlayedRound ( string_t strName );
 	string_t GetLastPlayedRound( void );
 
-	virtual void SetWinningTeam( int team, int iWinReason, bool bForceMapReset = true, bool bSwitchTeams = false, bool bDontAddScore = false );
+	virtual void SetWinningTeam( int team, int iWinReason, bool bForceMapReset = true, bool bSwitchTeams = false, bool bDontAddScore = false, bool bFinal = false );
 	virtual void SetStalemate( int iReason, bool bForceMapReset = true, bool bSwitchTeams = false );
 
 	virtual void SetRoundOverlayDetails( void ){ return; }
@@ -346,7 +366,8 @@ public:
 
 	bool IsGameUnderTimeLimit( void );
 
-	CTeamRoundTimer *GetActiveRoundTimer( void );
+public: // IGameEventListener Interface
+	virtual void FireGameEvent( IGameEvent * event );
 
 	void HandleTimeLimitChange( void );
 
@@ -366,14 +387,18 @@ public:
 
 	bool PlayThrottledAlert( int iTeam, const char *sound, float fDelayBeforeNext );
 
-	void BroadcastSound( int iTeam, const char *sound, int iAdditionalSoundFlags = 0 );
+	virtual void BroadcastSound( int iTeam, const char *sound, int iAdditionalSoundFlags = 0, CBasePlayer *pPlayer = NULL );
 	int GetRoundsPlayed( void ) { return m_nRoundsPlayed; }
+	void ResetPlayerAndTeamReadyState( void );
 
 	virtual void RecalculateControlPointState( void ){ return; }
 
 	virtual bool ShouldSkipAutoScramble( void ){ return false; }
 
 	virtual bool ShouldWaitToStartRecording( void ){ return IsInWaitingForPlayers(); }
+	bool IsGameOver( void ){ return ( CheckTimeLimit( false ) || CheckWinLimit( false ) || CheckMaxRounds( false ) || CheckNextLevelCvar( false ) ); }
+	virtual bool StopWatchShouldBeTimedWin( void ) { return m_bStopWatchShouldBeTimedWin; }
+	virtual bool IsOfficialMap( void ) { return false; }
 
 protected:
 	virtual void Think( void );
@@ -387,10 +412,10 @@ protected:
 	void		 CheckWaitingForPlayers( void );
 	virtual bool AllowWaitingForPlayers( void ) { return true; }
 	void		 CheckRestartRound( void );
-	bool		 CheckTimeLimit( void );
+	bool		 CheckTimeLimit( bool bAllowEnd = true );
 	int			 GetTimeLeft( void );
-	virtual	bool CheckWinLimit( void );
-	bool		 CheckMaxRounds( void );
+	virtual	bool CheckWinLimit( bool bAllowEnd = true, int nAddValueWhenChecking = 0 );
+	bool		 CheckMaxRounds( bool bAllowEnd = true, int nAddValueWhenChecking = 0 );
 
 	void		 CheckReadyRestart( void );
 #if defined(TF_CLIENT_DLL) || defined(TF_DLL)
@@ -446,6 +471,7 @@ protected:
 
 protected:
 	virtual void InitTeams( void );
+	virtual bool BHavePlayers( void );
 	virtual int	 CountActivePlayers( void );
 
 	virtual void RoundRespawn( void );
@@ -455,7 +481,7 @@ protected:
 	void ResetMapTime( void );
 
 	void PlayStartRoundVoice( void );
-	void PlayWinSong( int team );
+	virtual void PlayWinSong( int team );
 	void PlayStalemateSong( void );
 	void PlaySuddenDeathSong( void );
 
@@ -475,7 +501,6 @@ protected:
 
 protected:
 	CGameRulesRoundStateInfo	*m_pCurStateInfo;			// Per-state data 
-	float						m_flStateTransitionTime;	// Timer for round states
 
 	float						m_flWaitingForPlayersTimeEnds;
 	CHandle<CTeamRoundTimer>	m_hWaitingForPlayersTimer;
@@ -503,6 +528,7 @@ protected:
 	string_t					m_iszFirstRoundPlayed; // store the first round played after a full restart so we can pick a different one next time if we have other options
 
 	float						m_flOriginalTeamRespawnWaveTime[ MAX_TEAMS ];
+	bool						m_bPlayerReadyBefore[MAX_PLAYERS + 1];
 
 	bool						m_bAllowStalemateAtTimelimit;
 	bool						m_bChangelevelAfterStalemate;
@@ -512,6 +538,7 @@ protected:
 
 	int							m_nRoundsPlayed;
 	bool						m_bUseAddScoreAnim;
+	bool						m_bStopWatchShouldBeTimedWin;
 
 	gamerules_roundstate_t		m_prevState;
 
@@ -541,6 +568,8 @@ private:
 public:
 	bool WouldChangeUnbalanceTeams( int iNewTeam, int iCurrentTeam  );
 	bool AreTeamsUnbalanced( int &iHeaviestTeam, int &iLightestTeam );
+	virtual bool HaveCheatsBeenEnabledDuringLevel( void ) { return m_bCheatsEnabledDuringLevel; }
+	float GetPreroundCountdownTime( void ) { return m_flCountdownTime; }
 
 protected:
 	CNetworkVar( gamerules_roundstate_t, m_iRoundState );
@@ -555,6 +584,9 @@ protected:
 	CNetworkVar( bool,			m_bAwaitingReadyRestart );
 	CNetworkVar( float,			m_flRestartRoundTime );
 	CNetworkVar( float,			m_flMapResetTime );						// Time that the map was reset
+	CNetworkVar( bool,			m_bCheatsEnabledDuringLevel );
+	CNetworkVar( float,			m_flCountdownTime );					// Optional pre-round countdown end time
+	CNetworkVar( float,			m_flStateTransitionTime );				// Timer for round states
 	CNetworkArray( float,		m_flNextRespawnWave, MAX_TEAMS );		// Minor waste, but cleaner code
 	CNetworkArray( bool,		m_bTeamReady, MAX_TEAMS );
 	CNetworkVar( bool, m_bStopWatch );
@@ -563,6 +595,9 @@ protected:
 	
 public:
 	CNetworkArray( float,		m_TeamRespawnWaveTimes, MAX_TEAMS );	// Time between each team's respawn wave
+
+protected:
+	bool m_bAllowBetweenRounds;
 
 private:
 	float m_flStartBalancingTeamsAt;

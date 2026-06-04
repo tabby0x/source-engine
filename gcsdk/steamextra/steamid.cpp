@@ -17,6 +17,10 @@
 #include "steam/steamclientpublic.h"
 #endif
 
+#ifndef k_unSteamUserDesktopInstance
+#define k_unSteamUserDesktopInstance k_unSteamUserDefaultInstance
+#endif
+
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 

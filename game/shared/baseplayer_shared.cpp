@@ -1859,6 +1859,19 @@ void CBasePlayer::SharedSpawn()
 
 //-----------------------------------------------------------------------------
 // Purpose: 
+//-----------------------------------------------------------------------------
+bool CBasePlayer::IsLerpingFOV( void ) const
+{
+	if ( m_Local.m_flFOVRate == 0.0f )
+		return false;
+
+	float deltaTime = (float)( gpGlobals->curtime - m_flFOVTime ) / m_Local.m_flFOVRate;
+	return deltaTime < 1.0f;
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: 
 // Output : int
 //-----------------------------------------------------------------------------
 int CBasePlayer::GetDefaultFOV( void ) const

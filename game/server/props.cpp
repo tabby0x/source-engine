@@ -2408,6 +2408,7 @@ void COrnamentProp::InputDetach( inputdata_t &inputdata )
 LINK_ENTITY_TO_CLASS( physics_prop, CPhysicsProp );
 LINK_ENTITY_TO_CLASS( prop_physics, CPhysicsProp );	
 LINK_ENTITY_TO_CLASS( prop_physics_override, CPhysicsProp );	
+IMPLEMENT_AUTO_LIST( IPhysicsPropAutoList );
 
 BEGIN_DATADESC( CPhysicsProp )
 
@@ -4707,6 +4708,7 @@ public:
 	bool	OverridePropdata() { return true; }
 
 	void	InputSetSpeed(inputdata_t &inputdata);
+	virtual void ComputeDoorExtent( Extent *extent, unsigned int extentType );	// extent contains the volume encompassing open + closed states
 
 	DECLARE_DATADESC();
 
@@ -5025,6 +5027,34 @@ void CPropDoorRotating::OnRestore( void )
 	// Figure out our volumes of movement as this door opens
 	CalculateDoorVolume( GetLocalAngles(), m_angRotationOpenForward, &m_vecForwardBoundsMin, &m_vecForwardBoundsMax );
 	CalculateDoorVolume( GetLocalAngles(), m_angRotationOpenBack, &m_vecBackBoundsMin, &m_vecBackBoundsMax );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+void CPropDoorRotating::ComputeDoorExtent( Extent *extent, unsigned int extentType )
+{
+	if ( !extent )
+		return;
+
+	if ( extentType & DOOR_EXTENT_CLOSED )
+	{
+		CalculateDoorVolume( m_angRotationClosed, m_angRotationClosed, &extent->lo, &extent->hi );
+
+		if ( extentType & DOOR_EXTENT_OPEN )
+		{
+			Extent openExtent;
+			UTIL_ComputeAABBForBounds( m_vecForwardBoundsMin, m_vecForwardBoundsMax, m_vecBackBoundsMin, m_vecBackBoundsMax, &openExtent.lo, &openExtent.hi );
+			extent->Encompass( openExtent );
+		}
+	}
+	else if ( extentType & DOOR_EXTENT_OPEN )
+	{
+		UTIL_ComputeAABBForBounds( m_vecForwardBoundsMin, m_vecForwardBoundsMax, m_vecBackBoundsMin, m_vecBackBoundsMax, &extent->lo, &extent->hi );
+	}
+
+	extent->lo += GetAbsOrigin();
+	extent->hi += GetAbsOrigin();
 }
 
 //-----------------------------------------------------------------------------

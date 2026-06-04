@@ -644,6 +644,8 @@ $Project
 		$File	"vguiscreen.cpp"
 		$File	"vguiscreen.h"
 		$File	"$SRCDIR\public\mathlib\vmatrix.h"
+		$File	"player_voice_listener.h"
+		$File	"player_voice_listener.cpp"
 		$File	"$SRCDIR\game\shared\voice_common.h"
 		$File	"$SRCDIR\game\shared\voice_gamemgr.cpp"
 		$File	"$SRCDIR\game\shared\voice_gamemgr.h"

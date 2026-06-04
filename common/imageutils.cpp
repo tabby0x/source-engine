@@ -6,14 +6,15 @@
 //=======================================================================================//
 
 // @note Tom Bui: we need to use fopen below in the jpeg code, so we can't have this on...
-#ifdef PROTECTED_THINGS_ENABLE
 #if !defined( POSIX )
+#ifdef fopen
 #undef fopen
-#endif // POSIX
 #endif
+#endif // POSIX
 
 #if defined( WIN32 ) && !defined( _X360 )
 #include <windows.h> // SRC only!!
+#include <stdio.h>
 #elif defined( POSIX )
 #include <stdio.h>
 #include <sys/stat.h>
@@ -107,6 +108,12 @@ extern void longjmp( jmp_buf, int ) __attribute__((noreturn));
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include <tier0/memdbgon.h>
+
+#if !defined( POSIX )
+#ifdef fopen
+#undef fopen
+#endif
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -2284,6 +2291,56 @@ ConversionErrorType ImgUtl_LoadPNGBitmapFromBuffer( CUtlBuffer &fileData, Bitmap
 
 	// Install the buffer into the bitmap, and transfer ownership
 	bitmap.SetBuffer( width, height, IMAGE_FORMAT_RGBA8888, buffer, true, width*4 );
+	return CE_SUCCESS;
+#else
+	return CE_SOURCE_FILE_FORMAT_NOT_SUPPORTED;
+#endif
+}
+
+ConversionErrorType ImgUtl_GetPNGSize( CUtlBuffer &fileData, uint32_t &uWidth, uint32_t &uHeight )
+{
+#if HAVE_PNG
+	png_const_bytep pngData = (png_const_bytep)fileData.Base();
+	if ( png_sig_cmp( pngData, 0, 8 ) )
+	{
+		return CE_ERROR_PARSING_SOURCE;
+	}
+
+	png_structp png_ptr = png_create_read_struct( PNG_LIBPNG_VER_STRING, NULL, NULL, NULL );
+	if ( !png_ptr )
+	{
+		return CE_MEMORY_ERROR;
+	}
+
+	png_infop info_ptr = png_create_info_struct( png_ptr );
+	if ( !info_ptr )
+	{
+		png_destroy_read_struct( &png_ptr, NULL, NULL );
+		return CE_MEMORY_ERROR;
+	}
+
+	if ( setjmp( png_jmpbuf( png_ptr ) ) )
+	{
+		png_destroy_read_struct( &png_ptr, &info_ptr, NULL );
+		return CE_ERROR_PARSING_SOURCE;
+	}
+
+	int nOriginalGet = fileData.TellGet();
+	fileData.SeekGet( CUtlBuffer::SEEK_HEAD, 0 );
+	png_set_read_fn( png_ptr, &fileData, ReadPNGData );
+	png_read_info( png_ptr, info_ptr );
+
+	int bit_depth;
+	int color_type;
+	png_uint_32 png_width;
+	png_uint_32 png_height;
+	png_get_IHDR( png_ptr, info_ptr, &png_width, &png_height, &bit_depth, &color_type, NULL, NULL, NULL );
+
+	fileData.SeekGet( CUtlBuffer::SEEK_HEAD, nOriginalGet );
+	png_destroy_read_struct( &png_ptr, &info_ptr, NULL );
+
+	uWidth = png_width;
+	uHeight = png_height;
 	return CE_SUCCESS;
 #else
 	return CE_SOURCE_FILE_FORMAT_NOT_SUPPORTED;

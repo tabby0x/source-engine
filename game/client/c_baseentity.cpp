@@ -1035,6 +1035,8 @@ C_BaseEntity::C_BaseEntity() :
 	m_iv_angRotation( "C_BaseEntity::m_iv_angRotation" ),
 	m_iv_vecVelocity( "C_BaseEntity::m_iv_vecVelocity" )
 {
+	m_pAttributes = NULL;
+
 	AddVar( &m_vecOrigin, &m_iv_vecOrigin, LATCH_SIMULATION_VAR );
 	AddVar( &m_angRotation, &m_iv_angRotation, LATCH_SIMULATION_VAR );
 	// Removing this until we figure out why velocity introduces view hitching.
@@ -1289,6 +1291,14 @@ bool C_BaseEntity::InitializeAsClientEntityByIndex( int iIndex, RenderGroup_t re
 	SpawnClientEntity();
 
 	return true;
+}
+
+void C_BaseEntity::TrackAngRotation( bool bTrack )
+{
+	if ( bTrack )
+		AddVar( &m_angRotation, &m_iv_angRotation, LATCH_SIMULATION_VAR );
+	else
+		RemoveVar( &m_angRotation, false );
 }
 
 

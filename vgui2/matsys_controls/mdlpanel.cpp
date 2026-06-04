@@ -73,6 +73,8 @@ CMDLPanel::CMDLPanel( vgui::Panel *pParent, const char *pName ) : BaseClass( pPa
 	m_DefaultHDREnvCubemap.Init( pCubemapTexture );
 
 	SetIdentityMatrix( m_RootMDL.m_MDLToWorld );
+	m_RootMDL.m_pStudioHdr = NULL;
+	m_RootMDL.m_unMdlCacheSerial = 0;
 	m_bDrawCollisionModel = false;
 	m_bWireFrame = false;
 	m_bGroundGrid = false;
@@ -85,9 +87,14 @@ CMDLPanel::CMDLPanel( vgui::Panel *pParent, const char *pName ) : BaseClass( pPa
 
 CMDLPanel::~CMDLPanel()
 {
-	m_aMergeMDLs.Purge();
+	ClearMergeMDLs();
 	m_DefaultEnvCubemap.Shutdown( );
 	m_DefaultHDREnvCubemap.Shutdown();
+	if ( m_RootMDL.m_pStudioHdr )
+	{
+		delete m_RootMDL.m_pStudioHdr;
+		m_RootMDL.m_pStudioHdr = NULL;
+	}
 }
 
 
@@ -146,6 +153,16 @@ void CMDLPanel::SetThumbnailSafeZone( bool bVisible )
 void CMDLPanel::SetMDL( MDLHandle_t handle, void *pProxyData )
 {
 	m_RootMDL.m_MDL.SetMDL( handle );
+	if ( m_RootMDL.m_pStudioHdr )
+	{
+		delete m_RootMDL.m_pStudioHdr;
+		m_RootMDL.m_pStudioHdr = NULL;
+	}
+	if ( handle != MDLHANDLE_INVALID && m_RootMDL.m_MDL.GetStudioHdr() )
+	{
+		m_RootMDL.m_pStudioHdr = new CStudioHdr( m_RootMDL.m_MDL.GetStudioHdr(), g_pMDLCache );
+		m_RootMDL.m_unMdlCacheSerial = 0;
+	}
 	m_RootMDL.m_MDL.m_pProxyData = pProxyData;
 
 	Vector vecMins, vecMaxs;
@@ -821,6 +838,12 @@ void CMDLPanel::SetMergeMDL( MDLHandle_t handle, void *pProxyData, int nSkin /*=
 	SetIdentityMatrix( m_aMergeMDLs[iIndex].m_MDLToWorld );
 
 	m_aMergeMDLs[iIndex].m_bDisabled = false;
+	m_aMergeMDLs[iIndex].m_pStudioHdr = NULL;
+	m_aMergeMDLs[iIndex].m_unMdlCacheSerial = 0;
+	if ( handle != MDLHANDLE_INVALID && m_aMergeMDLs[iIndex].m_MDL.GetStudioHdr() )
+	{
+		m_aMergeMDLs[iIndex].m_pStudioHdr = new CStudioHdr( m_aMergeMDLs[iIndex].m_MDL.GetStudioHdr(), g_pMDLCache );
+	}
 
 	// Need to invalidate the layout so the panel will adjust is LookAt for the new model.
 	InvalidateLayout();
@@ -896,7 +919,39 @@ CMDL *CMDLPanel::GetMergeMDL( MDLHandle_t handle )
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
+CStudioHdr *CMDLPanel::GetMergeMDLStudioHdr( MDLHandle_t handle )
+{
+	int nMergeCount = m_aMergeMDLs.Count();
+	for ( int iMerge = 0; iMerge < nMergeCount; ++iMerge )
+	{
+		if ( m_aMergeMDLs[iMerge].m_MDL.GetMDL() == handle )
+			return m_aMergeMDLs[iMerge].m_pStudioHdr;
+	}
+
+	return NULL;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
 void CMDLPanel::ClearMergeMDLs( void )
 {
+	int nMergeCount = m_aMergeMDLs.Count();
+	for ( int iMerge = 0; iMerge < nMergeCount; ++iMerge )
+	{
+		if ( m_aMergeMDLs[iMerge].m_pStudioHdr )
+		{
+			delete m_aMergeMDLs[iMerge].m_pStudioHdr;
+			m_aMergeMDLs[iMerge].m_pStudioHdr = NULL;
+		}
+	}
+
 	m_aMergeMDLs.Purge();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+void CMDLPanel::ValidateMDLs()
+{
 }

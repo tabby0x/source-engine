@@ -1139,22 +1139,22 @@ void CSDLMgr::OnFrameRendered()
 		m_bSetMouseCursorCalled = false;
 	}
 
-	if ( m_bSetMouseVisibleCalled )
-	{
-
-
-		ConVarRef rawinput( "m_rawinput" );
+	ConVarRef rawinput( "m_rawinput" );
 
 #if defined( OSX ) || defined( ANDROID )
-		// We default raw input to on on Mac/Android and set it one time for all users since
-		// it didn't used to be the default.
-		if ( !rawinput_set_one_time.GetBool() )
-		{
-			rawinput_set_one_time.SetValue( 1 );
-			rawinput.SetValue( 1 );
-		}
+	// We default raw input to on on Mac/Android and set it one time for all users since
+	// it didn't used to be the default.
+	if ( !rawinput_set_one_time.GetBool() )
+	{
+		rawinput_set_one_time.SetValue( 1 );
+		rawinput.SetValue( 1 );
+	}
 #endif
-		m_bRawInput = !m_bCursorVisible && rawinput.IsValid() && rawinput.GetBool();
+
+	const bool bWantsRawInput = !m_bCursorVisible && rawinput.IsValid() && rawinput.GetBool();
+	if ( m_bSetMouseVisibleCalled || bWantsRawInput != m_bRawInput )
+	{
+		m_bRawInput = bWantsRawInput;
 
 		SDL_bool bWindowGrab = !m_bCursorVisible ? SDL_TRUE : SDL_FALSE;
 		SDL_bool bRelativeMouseMode = bWindowGrab;
@@ -1169,6 +1169,12 @@ void CSDLMgr::OnFrameRendered()
 
 		SDL_SetWindowGrab( m_Window, bWindowGrab );
 		SDL_SetRelativeMouseMode( bRelativeMouseMode );
+		m_nMouseXDelta = 0;
+		m_nMouseYDelta = 0;
+		int nDiscardX = 0;
+		int nDiscardY = 0;
+		SDL_GetRelativeMouseState( &nDiscardX, &nDiscardY );
+		m_bExpectSyntheticMouseMotion = false;
 
 		SDL_ShowCursor( m_bCursorVisible ? 1 : 0 );
 
@@ -2072,6 +2078,16 @@ void CSDLMgr::SetApplicationIcon( const char *pchAppIconFile )
 void CSDLMgr::GetMouseDelta( int &x, int &y, bool bIgnoreNextMouseDelta )
 {
 	SDLAPP_FUNC;
+
+	if ( bIgnoreNextMouseDelta )
+	{
+		m_nMouseXDelta = 0;
+		m_nMouseYDelta = 0;
+		SDL_GetRelativeMouseState( &x, &y );
+		x = 0;
+		y = 0;
+		return;
+	}
 
 	x = m_nMouseXDelta;
 	y = m_nMouseYDelta;

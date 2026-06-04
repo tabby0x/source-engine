@@ -85,7 +85,7 @@ public:
 	virtual void OnStartTouchAll(CBaseEntity *pOther);
 	virtual void OnEndTouchAll(CBaseEntity *pOther);
 
-	bool IsTouching( CBaseEntity *pOther );
+	virtual bool IsTouching( const CBaseEntity *pOther ) const;
 #ifdef MAPBASE_VSCRIPT
 	bool ScriptIsTouching( HSCRIPT hOther );
 #endif
@@ -207,7 +207,20 @@ protected:
 // Purpose: Hurts anything that touches it. If the trigger has a targetname,
 //			firing it will toggle state.
 //-----------------------------------------------------------------------------
-class CTriggerHurt : public CBaseTrigger
+// DEFINE_FUNCTION stores member pointers as if they come from the entity base.
+// Keep the datamap think functions on a single-inheritance shim.
+class CTriggerHurtShim : public CBaseTrigger
+{
+	virtual void RadiationThink( void ) = 0;
+	virtual void HurtThink( void ) = 0;
+
+public:
+	void RadiationThinkShim( void ) { RadiationThink(); }
+	void HurtThinkShim( void ) { HurtThink(); }
+};
+
+DECLARE_AUTO_LIST( ITriggerHurtAutoList );
+class CTriggerHurt : public CTriggerHurtShim, public ITriggerHurtAutoList
 {
 public:
 	CTriggerHurt()
@@ -220,7 +233,7 @@ public:
 #endif
 	}
 
-	DECLARE_CLASS( CTriggerHurt, CBaseTrigger );
+	DECLARE_CLASS( CTriggerHurt, CTriggerHurtShim );
 
 	void Spawn( void );
 	void RadiationThink( void );
@@ -260,6 +273,8 @@ public:
 
 	CUtlVector<EHANDLE>	m_hurtEntities;
 };
+
+bool IsTakingTriggerHurtDamageAtPoint( const Vector &vecPoint );
 
 //-----------------------------------------------------------------------------
 // Purpose: 

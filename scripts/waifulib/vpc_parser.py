@@ -101,6 +101,11 @@ def fix_dos_path( path ):
 			return find_path+file
 	return find_path+filename
 
+def is_source_file( path ):
+	return os.path.splitext(path)[1].lower() in [
+		'.c', '.cc', '.cpp', '.cxx', '.m', '.mm', '.rc', '.masm'
+	]
+
 def parse_vpcs( env ,vpcs, basedir ):
 	back_path = os.path.abspath('.')
 	os.chdir(env.SUBPROJECT_PATH[0])
@@ -153,6 +158,8 @@ def parse_vpcs( env ,vpcs, basedir ):
 				for k in i.split(';'):
 					k = k.replace('$SRCDIR', basedir)
 					s = fix_dos_path(k.split('"')[1])
+					if not is_source_file(s):
+						continue
 
 					for j in range(len(sources)):
 						if sources[j] == s:
@@ -163,7 +170,8 @@ def parse_vpcs( env ,vpcs, basedir ):
 				for j in i.split(';'):
 					j = j.replace('$SRCDIR', basedir)
 					s = fix_dos_path(j.split('"')[1])
-					sources.append(s)
+					if is_source_file(s):
+						sources.append(s)
 
 		for i in ret['$Configuration']:
 			if '$PreprocessorDefinitions' in i:

@@ -7310,6 +7310,11 @@ void CShaderAPIDx8::CreateTextures(
 			pTexture->m_NumCopies = 1;
 			pD3DTex = CreateD3DTexture( width, height, depth, dstImageFormat, numMipLevels, creationFlags, (char*)pDebugName );
 			pTexture->SetTexture( pD3DTex );
+			if ( !pD3DTex )
+			{
+				ExecuteNTimes( 20, Warning( "CreateTextures failed to allocate D3D texture '%s' size %dx%d depth %d format %d levels %d flags 0x%x\n",
+					pDebugName ? pDebugName : "<unnamed>", width, height, depth, dstImageFormat, numMipLevels, creationFlags ) );
+			}
 		}
 		else
 		{
@@ -8120,7 +8125,10 @@ bool CShaderAPIDx8::TexLock( int level, int cubeFaceID, int xOffset, int yOffset
 
 	ShaderAPITextureHandle_t hTexture = GetModifyTextureHandle();
 	if ( !m_Textures.IsValidIndex( hTexture ) )
+	{
+		ExecuteNTimes( 20, Warning( "TexLock failed: invalid modify texture handle %p\n", (void *)hTexture ) );
 		return false;
+	}
 
 	// Blow off mip levels if we don't support mipmapping
 	if ( !g_pHardwareConfig->SupportsMipmapping() && ( level > 0 ) )
@@ -8131,6 +8139,8 @@ bool CShaderAPIDx8::TexLock( int level, int cubeFaceID, int xOffset, int yOffset
 	Texture_t& tex = GetTexture( hTexture );
 	if ( level >= tex.m_NumLevels  )
 	{
+		ExecuteNTimes( 20, Warning( "TexLock failed: level %d >= levels %d for handle %p '%s'\n",
+			level, tex.m_NumLevels, (void *)hTexture, tex.m_DebugName.String() ) );
 		return false;
 	}
 
@@ -8142,6 +8152,13 @@ bool CShaderAPIDx8::TexLock( int level, int cubeFaceID, int xOffset, int yOffset
 	}
 
 	IDirect3DBaseTexture *pTexture = GetModifyTexture();
+	if ( !pTexture )
+	{
+		ExecuteNTimes( 20, Warning( "TexLock failed: null D3D texture for handle %p '%s' size %dx%d levels %d copies %d flags 0x%x creation 0x%x\n",
+			(void *)hTexture, tex.m_DebugName.String(), tex.m_Width, tex.m_Height, tex.m_NumLevels, tex.m_NumCopies,
+			tex.m_Flags, tex.m_CreationFlags ) );
+		return false;
+	}
 #if defined( _X360 )
 	// 360 can't lock a bound texture
 	if ( pTexture->IsSet( Dx9Device() ) )
@@ -8150,8 +8167,14 @@ bool CShaderAPIDx8::TexLock( int level, int cubeFaceID, int xOffset, int yOffset
 	}
 #endif
 
+	bool bDiscard = false;
+	if ( ( tex.m_CreationFlags & TEXTURE_CREATE_DYNAMIC ) != 0 )
+	{
+		bDiscard = ( xOffset == 0 && yOffset == 0 && width == tex.m_Width && height == tex.m_Height );
+	}
+
 	bool bOK = LockTexture( hTexture, tex.m_CurrentCopy, pTexture,
-		level, (D3DCUBEMAP_FACES)cubeFaceID, xOffset, yOffset, width, height, false, writer );
+		level, (D3DCUBEMAP_FACES)cubeFaceID, xOffset, yOffset, width, height, bDiscard, writer );
 	if ( bOK )
 	{
 		m_ModifyTextureLockedLevel = level;

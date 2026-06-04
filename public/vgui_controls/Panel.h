@@ -207,6 +207,7 @@ public:
 	// invisible panels and their children do not drawn, updated, or receive input messages
 	virtual void SetVisible(bool state);
 	virtual bool IsVisible();
+	virtual bool CanAnimate() const { return true; }
 
 	// painting
 	virtual VPANEL IsWithinTraverse(int x, int y, bool traversePopups);	// recursive; returns a pointer to the panel at those coordinates
@@ -255,7 +256,7 @@ public:
 	virtual void SetSilentMode( bool bSilent );						//change the panel's silent mode; if silent, the panel will not post any action signals
 
 	// install a mouse handler
-	virtual void InstallMouseHandler( Panel *pHandler );	// mouse events will be send to handler panel instead of this panel
+	virtual void InstallMouseHandler( Panel *pHandler, bool bThisHandlesAsWell = false, bool bMovementEvents = false );	// mouse events will be sent to handler panel instead and, by default, not this panel
 
 	// drawing state
 	virtual void   SetEnabled(bool state);
@@ -305,6 +306,7 @@ public:
 
 	void PinToSibling( const char *pszSibling, PinCorner_e pinOurCorner, PinCorner_e pinSibling );
 	void UpdateSiblingPin( void );
+	PHandle GetPinSibling() const { return m_pinSibling; }
 
 	// colors
 	virtual void SetBgColor(Color color);
@@ -350,6 +352,7 @@ public:
 	virtual void SetScheme(HScheme scheme);
 	virtual Color GetSchemeColor(const char *keyName,IScheme *pScheme);
 	virtual Color GetSchemeColor(const char *keyName, Color defaultColor,IScheme *pScheme);
+	Color GetColor( const char *pszColorName ) { return GetSchemeColor( pszColorName, vgui::scheme()->GetIScheme( GetScheme() ) ); }
 
 	// called when scheme settings need to be applied; called the first time before the panel is painted
 	virtual void ApplySchemeSettings(IScheme *pScheme);
@@ -391,6 +394,7 @@ public:
 	MESSAGE_FUNC( OnDelete, "Delete" );				// called to delete the panel; Panel::OnDelete() does simply { delete this; }
 	virtual void OnThink();							// called every frame before painting, but only if panel is visible
 	virtual void OnChildAdded(VPANEL child);		// called when a child has been added to this panel
+	virtual void OnChildRemoved(Panel *pChild);		// called when a child has been removed from this panel
 	virtual void OnSizeChanged(int newWide, int newTall);	// called after the size of a panel has been changed
 	
 	// called every frame if ivgui()->AddTickSignal() is called
@@ -914,6 +918,8 @@ private:
 	char			*_tooltipText;		// Tool tip text for panels that share tooltip panels with other panels
 
 	PHandle			m_hMouseEventHandler;
+	bool			m_bActOnHandledMouseInput : 1;
+	bool			m_bSendMoveEventsToHandler : 1;
 
 	bool			m_bWorldPositionCurrentFrame;		// if set, Panel gets PerformLayout called after the camera and the renderer's m_matrixWorldToScreen has been setup, so panels can be correctly attached to entities in the world
 

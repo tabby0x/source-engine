@@ -24,7 +24,6 @@ extern ConVar cl_particleeffect_aabb_buffer;
 extern bool g_cl_particle_show_bbox;
 extern int g_cl_particle_show_bbox_cost;
 
-
 //-----------------------------------------------------------------------------
 // Constructor, destructor
 //-----------------------------------------------------------------------------
@@ -55,6 +54,7 @@ void CNewParticleEffect::Construct()
 	m_bAllocated = true;
 	m_bSimulate = true;
 	m_bShouldPerformCullCheck = false;
+	m_bViewModelEffect = m_pDef ? m_pDef->IsViewModelEffect() : false;
 
 	m_nToolParticleEffectId = TOOLPARTICLESYSTEMID_INVALID;
 	m_RefCount = 0;

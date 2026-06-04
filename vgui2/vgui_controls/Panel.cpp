@@ -662,6 +662,8 @@ void Panel::Init( int x, int y, int wide, int tall )
 	_tooltipText = NULL;
 	_pinToSibling = NULL;
 	m_hMouseEventHandler = NULL;
+	m_bActOnHandledMouseInput = false;
+	m_bSendMoveEventsToHandler = false;
 	_pinCornerToSibling = PIN_TOPLEFT;
 	_pinToSiblingCorner = PIN_TOPLEFT;
 
@@ -1494,6 +1496,13 @@ void Panel::OnChildAdded(VPANEL child)
 }
 
 //-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+void Panel::OnChildRemoved(Panel *pChild)
+{
+}
+
+//-----------------------------------------------------------------------------
 // Purpose: default message handler
 //-----------------------------------------------------------------------------
 void Panel::OnSizeChanged(int newWide, int newTall)
@@ -1804,7 +1813,19 @@ void Panel::InternalCursorMoved(int x, int y)
 
 	ScreenToLocal(x, y);
 
-	OnCursorMoved(x, y);
+	Panel *pMouseHandler = m_hMouseEventHandler.Get();
+	if ( pMouseHandler && m_bSendMoveEventsToHandler )
+	{
+		int localX = x;
+		int localY = y;
+		pMouseHandler->ScreenToLocal( localX, localY );
+		pMouseHandler->OnCursorMoved( localX, localY );
+	}
+
+	if ( !pMouseHandler || m_bActOnHandledMouseInput || !m_bSendMoveEventsToHandler )
+	{
+		OnCursorMoved(x, y);
+	}
 }
 
 void Panel::InternalCursorEntered()
@@ -1826,7 +1847,16 @@ void Panel::InternalCursorEntered()
 		m_pTooltips->ShowTooltip(this);
 	}
 
-	OnCursorEntered();
+	Panel *pMouseHandler = m_hMouseEventHandler.Get();
+	if ( pMouseHandler && m_bSendMoveEventsToHandler )
+	{
+		pMouseHandler->OnCursorEntered();
+	}
+
+	if ( !pMouseHandler || m_bActOnHandledMouseInput || !m_bSendMoveEventsToHandler )
+	{
+		OnCursorEntered();
+	}
 }
 
 void Panel::InternalCursorExited()
@@ -1842,7 +1872,16 @@ void Panel::InternalCursorExited()
 		m_pTooltips->HideTooltip();
 	}
 
-	OnCursorExited();
+	Panel *pMouseHandler = m_hMouseEventHandler.Get();
+	if ( pMouseHandler && m_bSendMoveEventsToHandler )
+	{
+		pMouseHandler->OnCursorExited();
+	}
+
+	if ( !pMouseHandler || m_bActOnHandledMouseInput || !m_bSendMoveEventsToHandler )
+	{
+		OnCursorExited();
+	}
 }
 
 bool Panel::IsChildOfSurfaceModalPanel()
@@ -1973,7 +2012,8 @@ void Panel::InternalMousePressed(int code)
 	{
 		pMouseHandler->OnMousePressed( (MouseCode)code );
 	}
-	else
+
+	if ( !pMouseHandler || m_bActOnHandledMouseInput )
 	{
 		OnMousePressed( (MouseCode)code );
 	}
@@ -2011,7 +2051,8 @@ void Panel::InternalMouseDoublePressed(int code)
 	{
 		pMouseHandler->OnMouseDoublePressed( (MouseCode)code );
 	}
-	else
+
+	if ( !pMouseHandler || m_bActOnHandledMouseInput )
 	{
 		OnMouseDoublePressed( (MouseCode)code );
 	}
@@ -2063,7 +2104,16 @@ void Panel::InternalMouseTriplePressed( int code )
 		return;
 	}
 
-	OnMouseTriplePressed((MouseCode)code);
+	Panel *pMouseHandler = m_hMouseEventHandler.Get();
+	if ( pMouseHandler )
+	{
+		pMouseHandler->OnMouseTriplePressed((MouseCode)code);
+	}
+
+	if ( !pMouseHandler || m_bActOnHandledMouseInput )
+	{
+		OnMouseTriplePressed((MouseCode)code);
+	}
 #if defined( VGUI_USEDRAGDROP )
 	DragDropStartDragging();
 #endif
@@ -2122,7 +2172,16 @@ void Panel::InternalMouseReleased(int code)
 	}
 #endif
 
-	OnMouseReleased((MouseCode)code);
+	Panel *pMouseHandler = m_hMouseEventHandler.Get();
+	if ( pMouseHandler )
+	{
+		pMouseHandler->OnMouseReleased((MouseCode)code);
+	}
+
+	if ( !pMouseHandler || m_bActOnHandledMouseInput )
+	{
+		OnMouseReleased((MouseCode)code);
+	}
 }
 
 void Panel::InternalMouseWheeled(int delta)
@@ -2135,7 +2194,16 @@ void Panel::InternalMouseWheeled(int delta)
 	if ( !ShouldHandleInputMessage() )
 		return;
 
-	OnMouseWheeled(delta);
+	Panel *pMouseHandler = m_hMouseEventHandler.Get();
+	if ( pMouseHandler )
+	{
+		pMouseHandler->InternalMouseWheeled( delta );
+	}
+
+	if ( !pMouseHandler || m_bActOnHandledMouseInput )
+	{
+		OnMouseWheeled(delta);
+	}
 }
 
 void Panel::InternalKeyCodePressed(int code)
@@ -5447,9 +5515,11 @@ void Panel::SetSilentMode( bool bSilent )
 //-----------------------------------------------------------------------------
 // Purpose: mouse events will be send to handler panel instead of this panel
 //-----------------------------------------------------------------------------
-void Panel::InstallMouseHandler( Panel *pHandler )
+void Panel::InstallMouseHandler( Panel *pHandler, bool bThisHandlesAsWell, bool bMovementEvents )
 {
 	m_hMouseEventHandler = pHandler;
+	m_bActOnHandledMouseInput = bThisHandlesAsWell;
+	m_bSendMoveEventsToHandler = bMovementEvents;
 }
 
 //-----------------------------------------------------------------------------

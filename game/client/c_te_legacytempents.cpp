@@ -1099,18 +1099,25 @@ void CTempEnts::BreakModel( const Vector &pos, const QAngle &angles, const Vecto
 
 void CTempEnts::PhysicsProp( int modelindex, int skin, const Vector& pos, const QAngle &angles, const Vector& vel, int flags, int effects )
 {
-	C_PhysPropClientside *pEntity = C_PhysPropClientside::CreateNew();
-	
-	if ( !pEntity )
-		return;
-
 	const model_t *model = modelinfo->GetModel( modelindex );
-
 	if ( !model )
 	{
 		DevMsg("CTempEnts::PhysicsProp: model index %i not found\n", modelindex );
 		return;
 	}
+
+	PhysicsProp( model, skin, pos, angles, vel, flags, effects, modelindex );
+}
+
+C_PhysPropClientside *CTempEnts::PhysicsProp( const model_t *model, int skin, const Vector& pos, const QAngle &angles, const Vector& vel, int flags, int effects, int modelindex )
+{
+	C_PhysPropClientside *pEntity = C_PhysPropClientside::CreateNew();
+	
+	if ( !pEntity )
+		return NULL;
+
+	if ( !model )
+		return NULL;
 
 	pEntity->SetModelName( modelinfo->GetModelName(model) );
 	pEntity->m_nSkin = skin;
@@ -1122,7 +1129,7 @@ void CTempEnts::PhysicsProp( int modelindex, int skin, const Vector& pos, const 
 	if ( !pEntity->Initialize() )
 	{
 		pEntity->Release();
-		return;
+		return NULL;
 	}
 
 	IPhysicsObject *pPhysicsObject = pEntity->VPhysicsGetObject();
@@ -1135,7 +1142,7 @@ void CTempEnts::PhysicsProp( int modelindex, int skin, const Vector& pos, const 
 	{
 		// failed to create a physics object
 		pEntity->Release();
-		return;
+		return NULL;
 	}
 
 	if ( flags & 1 )
@@ -1143,6 +1150,8 @@ void CTempEnts::PhysicsProp( int modelindex, int skin, const Vector& pos, const 
 		pEntity->SetHealth( 0 );
 		pEntity->Break();
 	}
+
+	return pEntity;
 }
 
 //-----------------------------------------------------------------------------

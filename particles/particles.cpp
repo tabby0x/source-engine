@@ -912,6 +912,10 @@ CParticleCollection::CParticleCollection( )
 		m_ControlPoints[i].m_ForwardVector.Init( 0, 1, 0 );
 		m_ControlPoints[i].m_UpVector.Init( 0, 0, 1 );
 		m_ControlPoints[i].m_RightVector.Init( 1, 0, 0 );
+		m_ControlPoints[i].m_vVelocity.Init();
+		m_ControlPoints[i].m_flRadius = 0.0f;
+		m_ControlPoints[i].m_flDensity = 1.0f;
+		m_ControlPoints[i].m_flDuration = 0.0f;
 	}
 
 	memset( m_pParticleInitialAttributes, 0, sizeof(m_pParticleInitialAttributes) );
@@ -943,6 +947,7 @@ CParticleCollection::CParticleCollection( )
 	m_nNumParticlesToKill = 0;
 	m_pParticleKillList = NULL;
 	m_nHighestCP = 0;
+	m_nTargetCP = 0;
 	memset( m_pCollisionCacheData, 0, sizeof( m_pCollisionCacheData ) );
 	m_pParent = NULL;
 	m_LocalLighting = Color(255, 255, 255, 255);

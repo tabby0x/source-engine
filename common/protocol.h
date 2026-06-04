@@ -67,7 +67,7 @@ enum
 #define PROTOCOL_LASTVALID       0x03    // Last valid protocol
 
 #define CONNECTIONLESS_HEADER			0xFFFFFFFF	// all OOB packet start with this sequence
-#define STEAM_KEYSIZE				2048  // max size needed to contain a steam authentication key (both server and client)
+#define STEAM_KEYSIZE				4096  // max size needed to contain a steam authentication key (both server and client)
 
 // each channel packet has 1 byte of FLAG bits
 #define PACKET_FLAG_RELIABLE			(1<<0)	// packet contains subchannel stream data

@@ -121,9 +121,13 @@ inline CBaseEntity	*CBaseEntity::GetEffectEntity() const
 	return m_hEffectEntity.Get();
 }
 
-inline int CBaseEntity::GetPredictionRandomSeed( void )
+inline int CBaseEntity::GetPredictionRandomSeed( bool bUseUnSyncedServerPlatTime )
 {
+#ifdef GAME_DLL
+	return bUseUnSyncedServerPlatTime ? m_nPredictionRandomSeedServer : m_nPredictionRandomSeed;
+#else
 	return m_nPredictionRandomSeed;
+#endif
 }
 
 inline CBasePlayer *CBaseEntity::GetPredictionPlayer( void )
@@ -260,6 +264,15 @@ inline CBaseEntity* ToEnt(HSCRIPT hScript)
 	return (hScript) ? (CBaseEntity*)g_pScriptVM->GetInstanceValue(hScript, GetScriptDescForClass(CBaseEntity)) : NULL;
 }
 
+template <typename T>
+inline T* ScriptToEntClass( HSCRIPT hScript )
+{
+	CBaseEntity *pEntity = ToEnt( hScript );
+	if ( !pEntity )
+		return NULL;
+
+	return dynamic_cast< T* >( pEntity );
+}
 
 // Shared EntityMessage between game and client .dlls
 #define BASEENTITY_MSG_REMOVE_DECALS	1

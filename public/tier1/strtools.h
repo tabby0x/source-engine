@@ -56,6 +56,7 @@ wchar_t*	_V_wcsupr (const char* file, int line, wchar_t *start);
 
 // ASCII-optimized functions which fall back to CRT only when necessary
 char *V_strupr( char *start );
+char *V_strtitlecase( char *start );
 char *V_strlower( char *start );
 int V_stricmp( const char *s1, const char *s2 );
 int	V_strncmp( const char *s1, const char *s2, int count );

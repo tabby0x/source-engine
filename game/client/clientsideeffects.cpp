@@ -99,6 +99,7 @@ public:
 	//	Add an effect to the effects list
 	void			AddEffect( CClientSideEffect *effect );
 	// Remove the specified effect
+	void			RemoveEffect( CClientSideEffect *effect );
 	// Draw/update all effects in the current list
 	void			DrawEffects( double frametime );
 	// Flush out all effects from the list
@@ -158,6 +159,23 @@ void CEffectsList::AddEffect( CClientSideEffect *effect )
 	}
 
 	m_rgEffects[ m_nEffects++ ] = effect;
+}
+
+//-----------------------------------------------------------------------------
+void CEffectsList::RemoveEffect( CClientSideEffect *effect )
+{
+	Assert( effect );
+	CClientSideEffect **end = &m_rgEffects[m_nEffects];
+	for ( CClientSideEffect **p = &m_rgEffects[0]; p < end; ++p )
+	{
+		if ( *p == effect )
+		{
+			RemoveEffect( p - &m_rgEffects[0] );
+			return;
+		}
+	}
+
+	Assert( false );
 }
 
 //-----------------------------------------------------------------------------

@@ -30,19 +30,28 @@
 
 typedef void (*MemoryPoolReportFunc_t)( PRINTF_FORMAT_STRING char const* pMsg, ... );
 
+// Ways a memory pool can grow when it needs to make a new blob.
+// Kept as globals for older GC/economy code that references UTLMEMORYPOOL_*.
+enum MemoryPoolGrowType_t
+{
+	UTLMEMORYPOOL_GROW_NONE=0,
+	UTLMEMORYPOOL_GROW_FAST=1,
+	UTLMEMORYPOOL_GROW_SLOW=2
+};
+
 class CUtlMemoryPool
 {
 public:
 	// Ways the memory pool can grow when it needs to make a new blob.
 	enum MemoryPoolGrowType_t
 	{
-		GROW_NONE=0,		// Don't allow new blobs.
-		GROW_FAST=1,		// New blob size is numElements * (i+1)  (ie: the blocks it allocates
+		GROW_NONE=UTLMEMORYPOOL_GROW_NONE,		// Don't allow new blobs.
+		GROW_FAST=UTLMEMORYPOOL_GROW_FAST,		// New blob size is numElements * (i+1)  (ie: the blocks it allocates
 							// get larger and larger each time it allocates one).
-		GROW_SLOW=2			// New blob size is numElements.
+		GROW_SLOW=UTLMEMORYPOOL_GROW_SLOW			// New blob size is numElements.
 	};
 
-				CUtlMemoryPool( int blockSize, int numElements, int growMode = GROW_FAST, const char *pszAllocOwner = NULL, int nAlignment = 0 );
+				CUtlMemoryPool( int blockSize, int numElements, int growMode = UTLMEMORYPOOL_GROW_FAST, const char *pszAllocOwner = NULL, int nAlignment = 0 );
 				~CUtlMemoryPool();
 
 	void*		Alloc();	// Allocate the element size you specified in the constructor.

@@ -116,7 +116,7 @@
 #if defined( TF_CLIENT_DLL )
 #include "rtime.h"
 #include "tf_hud_disconnect_prompt.h"
-#include "../engine/audio/public/sound.h"
+#include "engine/audio/sound.h"
 #include "tf_shared_content_manager.h"
 #endif
 #include "clientsteamcontext.h"

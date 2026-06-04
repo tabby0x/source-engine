@@ -420,7 +420,7 @@ void CSteam3Server::OnLogonSuccess( SteamServersConnected_t *pLogonSuccess )
 		MsgAndLog( "Connection to Steam servers successful.\n" );
 		if ( SteamGameServer() )
 		{
-			uint32 ip = SteamGameServer()->GetPublicIP();
+			uint32 ip = GetPublicIP();
 			MsgAndLog( "   Public IP is %d.%d.%d.%d.\n", (ip >> 24) & 255, (ip >> 16) & 255, (ip >> 8) & 255, ip & 255 );
 		}
 	}

@@ -163,7 +163,7 @@ protected:
 	virtual void	FullLadderMove();
 
 	// The basic solid body movement clip that slides along multiple planes
-	virtual int		TryPlayerMove( Vector *pFirstDest=NULL, trace_t *pFirstTrace=NULL );
+	virtual int		TryPlayerMove( Vector *pFirstDest=NULL, trace_t *pFirstTrace=NULL, float flSlideMultiplier = 0.f );
 	
 	virtual bool	LadderMove( void );
 	virtual bool	OnLadder( trace_t &trace );
@@ -182,7 +182,7 @@ protected:
 	// returns the blocked flags:
 	// 0x01 == floor
 	// 0x02 == step / wall
-	int				ClipVelocity( Vector& in, Vector& normal, Vector& out, float overbounce );
+	int				ClipVelocity( Vector& in, Vector& normal, Vector& out, float overbounce, float redirectCoeff = 0.f );
 
 	// If pmove.origin is in a solid position,
 	// try nudging slightly on all axis to

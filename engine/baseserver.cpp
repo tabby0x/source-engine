@@ -1474,25 +1474,50 @@ bool CBaseServer::CheckChallengeType( CBaseClient * client, int nNewUserID, neta
 
 		client->SetSteamID( CSteamID() ); // set an invalid SteamID
 
+		const bool bLoopbackClient = adr.GetType() == NA_LOOPBACK || adr.IsLocalhost();
+		bool bSkipSteamAuthForLoopback = false;
+
 		// Convert raw certificate back into data
-/*		if ( cbCookie <= 0 || cbCookie >= STEAM_KEYSIZE )
+		if ( cbCookie <= sizeof(uint64) || cbCookie >= STEAM_KEYSIZE )
 		{
-			RejectConnection( adr, clientChallenge, "#GameUI_ServerRejectInvalidSteamCertLen" );
-			return false;
-		}*/
+			if ( bLoopbackClient && cbCookie >= 0 && cbCookie <= (int)sizeof(uint64) && Steam3Client().SteamUser() )
+			{
+				CSteamID localSteamID = Steam3Client().SteamUser()->GetSteamID();
+				if ( localSteamID.IsValid() && localSteamID.BIndividualAccount() )
+				{
+					client->SetSteamID( localSteamID );
+					bSkipSteamAuthForLoopback = true;
+					Msg( "Using local Steam ID %s for loopback client without auth ticket\n", localSteamID.Render() );
+				}
+			}
+
+			if ( !bSkipSteamAuthForLoopback )
+			{
+				RejectConnection( adr, clientChallenge, "#GameUI_ServerRejectInvalidSteamCertLen" );
+				return false;
+			}
+		}
 		netadr_t checkAdr = adr;
-		if ( adr.GetType() == NA_LOOPBACK || adr.IsLocalhost() )
+		if ( bLoopbackClient )
 		{
 			checkAdr.SetIP( net_local_adr.GetIPHostByteOrder() );
 		}
-#if 0
-		if ( !Steam3Server().NotifyClientConnect( client, nNewUserID, checkAdr, pchLogonCookie, cbCookie ) 
+		if ( !bSkipSteamAuthForLoopback && !Steam3Server().NotifyClientConnect( client, nNewUserID, checkAdr, pchLogonCookie, cbCookie ) 
 			&& !Steam3Server().BLanOnly() ) // the userID isn't alloc'd yet so we need to fill it in manually
 		{
 			RejectConnection( adr, clientChallenge, "#GameUI_ServerRejectSteam" );
 			return false;
 		}
-#endif
+
+		if ( !client->m_SteamID.IsValid() && bLoopbackClient && Steam3Client().SteamUser() )
+		{
+			CSteamID localSteamID = Steam3Client().SteamUser()->GetSteamID();
+			if ( localSteamID.IsValid() && localSteamID.BIndividualAccount() )
+			{
+				client->SetSteamID( localSteamID );
+				Msg( "Using local Steam ID %s for loopback client\n", localSteamID.Render() );
+			}
+		}
 
 		//
 		// Any rejections below this must call SendUserDisconnect

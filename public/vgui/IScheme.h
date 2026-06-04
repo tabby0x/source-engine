@@ -114,6 +114,15 @@ public:
 	virtual int GetProportionalScaledValueEx( HScheme scheme, int normalizedValue ) = 0;
 	virtual int GetProportionalNormalizedValueEx( HScheme scheme, int scaledValue ) = 0;
 
+	int QuickPropScaleCond( bool bScale, HScheme scheme, int normalizedValue )
+	{
+		if ( !bScale )
+			return normalizedValue;
+		return this->GetProportionalScaledValueEx( scheme, normalizedValue );
+	}
+
+	#define QuickPropScale( x ) ( ::vgui::scheme()->QuickPropScaleCond( this->IsProportional(), this->GetScheme(), ( x ) ) )
+
 	// Returns true if image evicted, false otherwise
 	virtual bool DeleteImage( const char *pImageName ) = 0;
 };

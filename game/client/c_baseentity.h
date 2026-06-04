@@ -50,6 +50,7 @@ class CDamageModifier;
 class IRecipientFilter;
 class CUserCmd;
 struct solid_t;
+struct StartSoundParams_t;
 class ISave;
 class IRestore;
 class C_BaseAnimating;
@@ -61,6 +62,7 @@ class C_BaseCombatCharacter;
 class CEntityMapData;
 class ConVar;
 class CDmgAccumulator;
+class IHasAttributes;
 
 struct CSoundParameters;
 
@@ -735,7 +737,7 @@ public:
 
 	virtual bool					ShouldDraw();
 	inline	bool					IsVisible() const { return m_hRender != INVALID_CLIENT_RENDER_HANDLE; }
-			void					UpdateVisibility();
+	virtual void					UpdateVisibility();
 	
 	// Returns true if the entity changes its position every frame on the server but it doesn't
 	// set animtime. In that case, the client returns true here so it copies the server time to
@@ -792,7 +794,9 @@ public:
 	virtual void					SetHealth(int iHealth) {}
 	virtual int						GetHealth() const { return 0; }
 	virtual int						GetMaxHealth() const { return 1; }
-	virtual bool					IsVisibleToTargetID( void ) { return false; }
+	virtual bool					IsVisibleToTargetID( void ) const { return false; }
+	virtual bool					IsHealthBarVisible( void ) const { return false; }
+	virtual float					GetHealthBarHeightOffset( void ) const { return 0.f; }
 
 	// Returns the health fraction
 	float							HealthFraction() const;
@@ -1159,6 +1163,9 @@ public:
 	bool				IsFollowingEntity();
 	CBaseEntity			*GetFollowedEntity();
 
+	virtual void ClientAdjustStartSoundParams( EmitSound_t &params ) {}
+	virtual void ClientAdjustStartSoundParams( StartSoundParams_t& params ) {}
+
 #ifdef MAPBASE_VSCRIPT
 	void ScriptFollowEntity( HSCRIPT hBaseEntity, bool bBoneMerge );
 	HSCRIPT ScriptGetFollowedEntity();
@@ -1280,7 +1287,11 @@ public:
 	// Sets the origin + angles to match the last position received
 	void MoveToLastReceivedPosition( bool force = false );
 
+	inline IHasAttributes *GetHasAttributesInterfacePtr() const { return m_pAttributes; }
+
 protected:
+	IHasAttributes *m_pAttributes;
+
 	// Only meant to be called from subclasses
 	void DestroyModelInstance();
 
@@ -1320,7 +1331,7 @@ protected:
 
 public:
 	// Accessors for above
-	static int						GetPredictionRandomSeed( void );
+	static int						GetPredictionRandomSeed( bool bUseUnSyncedServerPlatTime = false );
 	static void						SetPredictionRandomSeed( const CUserCmd *cmd );
 	static C_BasePlayer				*GetPredictionPlayer( void );
 	static void						SetPredictionPlayer( C_BasePlayer *player );
@@ -1488,6 +1499,7 @@ public:
 	void							HierarchyUpdateMoveParent();
 
 	virtual bool					IsDeflectable() { return false; }
+	bool							IsCombatCharacter() { return MyCombatCharacterPointer() == NULL ? false : true; }
 
 protected:
 	int								m_nFXComputeFrame;
@@ -1545,6 +1557,8 @@ public:
 	// This can be used to setup the entity as a client-only entity. It gets an entity handle,
 	// a render handle, and is put into the spatial partition.
 	bool InitializeAsClientEntityByIndex( int iIndex, RenderGroup_t renderGroup );
+
+	void TrackAngRotation( bool bTrack );
 
 private:
 	friend void OnRenderStart();

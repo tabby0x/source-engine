@@ -14,6 +14,34 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
+static const char *NormalizeMaterialProxyVarName( const char *pVarName, char *pBuffer, int nBufferSize )
+{
+	if ( !pVarName || nBufferSize <= 0 )
+		return pVarName;
+
+	const char *pRead = pVarName;
+	while ( V_isspace( *pRead ) )
+	{
+		++pRead;
+	}
+
+	if ( *pRead != '$' )
+		return pVarName;
+
+	char *pWrite = pBuffer;
+	char *pWriteEnd = pBuffer + nBufferSize - 1;
+	for ( ; *pRead && pWrite < pWriteEnd; ++pRead )
+	{
+		if ( !V_isspace( *pRead ) )
+		{
+			*pWrite++ = *pRead;
+		}
+	}
+	*pWrite = 0;
+
+	return pBuffer;
+}
+
 //-----------------------------------------------------------------------------
 // Helper class to deal with floating point inputs
 //-----------------------------------------------------------------------------
@@ -55,6 +83,9 @@ bool CFloatInput::Init( IMaterial *pMaterial, KeyValues *pKeyValues, const char 
 			{
 				m_FloatVecComp = -1;
 			}
+
+			char pNormalizedVarName[256];
+			pVarName = NormalizeMaterialProxyVarName( pVarName, pNormalizedVarName, sizeof( pNormalizedVarName ) );
 
 			bool bFoundVar;
 			m_pFloatVar = pMaterial->FindVar( pVarName, &bFoundVar, true );
@@ -133,6 +164,9 @@ bool CResultProxy::Init( IMaterial *pMaterial, KeyValues *pKeyValues )
 		m_ResultVecComp = -1;
 	}
 
+	char pNormalizedResult[256];
+	pResult = NormalizeMaterialProxyVarName( pResult, pNormalizedResult, sizeof( pNormalizedResult ) );
+
 	bool foundVar;
 	m_pResult = pMaterial->FindVar( pResult, &foundVar, true );
 	if( !foundVar )
@@ -206,6 +240,9 @@ bool CFunctionProxy::Init( IMaterial *pMaterial, KeyValues *pKeyValues )
 	if( !pSrcVar1 )
 		return false;
 
+	char pNormalizedSrcVar1[256];
+	pSrcVar1 = NormalizeMaterialProxyVarName( pSrcVar1, pNormalizedSrcVar1, sizeof( pNormalizedSrcVar1 ) );
+
 	bool foundVar;
 	m_pSrc1 = pMaterial->FindVar( pSrcVar1, &foundVar, true );
 	if( !foundVar )
@@ -215,6 +252,9 @@ bool CFunctionProxy::Init( IMaterial *pMaterial, KeyValues *pKeyValues )
 	char const* pSrcVar2 = pKeyValues->GetString( "srcVar2" );
 	if( pSrcVar2 && (*pSrcVar2) )
 	{
+		char pNormalizedSrcVar2[256];
+		pSrcVar2 = NormalizeMaterialProxyVarName( pSrcVar2, pNormalizedSrcVar2, sizeof( pNormalizedSrcVar2 ) );
+
 		m_pSrc2 = pMaterial->FindVar( pSrcVar2, &foundVar, true );
 		if( !foundVar )
 			return false;

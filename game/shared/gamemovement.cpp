@@ -1200,6 +1200,7 @@ void CGameMovement::FinishTrackPredictionErrors( CBasePlayer *pPlayer )
 void CGameMovement::FinishMove( void )
 {
 	mv->m_nOldButtons = mv->m_nButtons;
+	mv->m_flOldForwardMove = mv->m_flForwardMove;
 }
 
 #define PUNCH_DAMPING		9.0f		// bigger number makes the response more damped, smaller is less damped
@@ -2103,8 +2104,8 @@ void CGameMovement::FullWalkMove( )
 
 		if (player->GetGroundEntity() != NULL)
 		{
-			WalkMove();
-		}
+	WalkMove();
+}
 		else
 		{
 			AirMove();  // Take into account movement when in air.
@@ -2560,7 +2561,7 @@ void CGameMovement::FullLadderMove()
 // Purpose: 
 // Output : int
 //-----------------------------------------------------------------------------
-int CGameMovement::TryPlayerMove( Vector *pFirstDest, trace_t *pFirstTrace )
+int CGameMovement::TryPlayerMove( Vector *pFirstDest, trace_t *pFirstTrace, float flSlideMultiplier /* = 0.f */ )
 {
 	int			bumpcount, numbumps;
 	Vector		dir;
@@ -2727,12 +2728,13 @@ int CGameMovement::TryPlayerMove( Vector *pFirstDest, trace_t *pFirstTrace )
 				if ( planes[i][2] > 0.7  )
 				{
 					// floor or slope
-					ClipVelocity( original_velocity, planes[i], new_velocity, 1 );
+					ClipVelocity( original_velocity, planes[i], new_velocity, 1, flSlideMultiplier );
 					VectorCopy( new_velocity, original_velocity );
 				}
 				else
 				{
-					ClipVelocity( original_velocity, planes[i], new_velocity, 1.0 + sv_bounce.GetFloat() * (1 - player->m_surfaceFriction) );
+					ClipVelocity( original_velocity, planes[i], new_velocity,
+						1.0 + sv_bounce.GetFloat() * (1 - player->m_surfaceFriction), flSlideMultiplier );
 				}
 			}
 
@@ -2747,7 +2749,7 @@ int CGameMovement::TryPlayerMove( Vector *pFirstDest, trace_t *pFirstTrace )
 					original_velocity,
 					planes[i],
 					mv->m_vecVelocity,
-					1);
+					1, flSlideMultiplier );
 
 				for (j=0 ; j<numplanes ; j++)
 					if (j != i)
@@ -3145,7 +3147,7 @@ void CGameMovement::PushEntity( Vector& push, trace_t *pTrace )
 //			overbounce - 
 // Output : int
 //-----------------------------------------------------------------------------
-int CGameMovement::ClipVelocity( Vector& in, Vector& normal, Vector& out, float overbounce )
+int CGameMovement::ClipVelocity( Vector& in, Vector& normal, Vector& out, float overbounce, float flRedirectCoeff /* = 0.f */ )
 {
 	float	backoff;
 	float	change;
@@ -3162,7 +3164,8 @@ int CGameMovement::ClipVelocity( Vector& in, Vector& normal, Vector& out, float 
 	
 
 	// Determine how far along plane to slide based on incoming direction.
-	backoff = DotProduct (in, normal) * overbounce;
+	float flBlocked = DotProduct (in, normal);
+	backoff = flBlocked * overbounce;
 
 	for (i=0 ; i<3 ; i++)
 	{
@@ -3176,6 +3179,13 @@ int CGameMovement::ClipVelocity( Vector& in, Vector& normal, Vector& out, float 
 	{
 		out -= ( normal * adjust );
 //		Msg( "Adjustment = %lf\n", adjust );
+	}
+
+	if ( flRedirectCoeff > 0.f )
+	{
+		// Redirect clipped velocity along angle of movement.
+		float flLen = out.Length();
+		out *= ( -1.f * flBlocked * flRedirectCoeff + flLen ) / flLen;
 	}
 
 	// Return blocking flags.

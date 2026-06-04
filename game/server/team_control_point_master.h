@@ -66,6 +66,11 @@ public:
 	bool IsBaseControlPoint( int iPointIndex );
 
 	bool PlayingMiniRounds( void ){	return ( m_ControlPointRounds.Count() > 0 ); }
+	int GetNumRounds( void ) const { return m_ControlPointRounds.Count(); }
+	const CTeamControlPointRound *GetRoundByIndex( int nIndex ) const
+	{
+		return m_ControlPointRounds.IsValidIndex( nIndex ) ? m_ControlPointRounds[nIndex] : NULL;
+	}
 
 	float PointLastContestedAt( int point );
 	CTeamControlPoint *GetControlPoint( int point )
@@ -121,6 +126,8 @@ public:
 	bool ShouldScorePerCapture( void ){ return m_bScorePerCapture; }
 	bool ShouldPlayAllControlPointRounds( void ){ return m_bPlayAllRounds; }
 	int NumPlayableControlPointRounds( void ); // checks to see if there are any more rounds to play (but doesn't actually "get" one to play)
+	int GetCurrentRoundIndex( void ) { return m_iCurrentRoundIndex; }
+	bool ShouldSwitchTeamsOnRoundWin( void ) { return m_bSwitchTeamsOnWin; }
 	
 //	void ListRounds( void );
 

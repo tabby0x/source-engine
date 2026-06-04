@@ -55,6 +55,8 @@ class SendTable;
 
 #endif
 
+#define DECLARE_NETWORKCLASS_OVERRIDE() DECLARE_NETWORKCLASS()
+
 #if defined( CLIENT_DLL )
 
 #ifndef NO_ENTITY_PREDICTION
@@ -67,6 +69,8 @@ class SendTable;
 #else
 #define DECLARE_PREDICTABLE()	template <typename T> friend datamap_t *PredMapInit(T *)
 #endif
+
+#define DECLARE_PREDICTABLE_OVERRIDE() DECLARE_PREDICTABLE()
 
 #ifndef NO_ENTITY_PREDICTION
 #define BEGIN_PREDICTION_DATA( className ) \
@@ -136,6 +140,10 @@ class SendTable;
 	#define BEGIN_PREDICTION_DATA( className ) 
 	#define END_PREDICTION_DATA() 
 
+#endif
+
+#ifndef DECLARE_PREDICTABLE_OVERRIDE
+#define DECLARE_PREDICTABLE_OVERRIDE() DECLARE_PREDICTABLE()
 #endif
 
 #if defined( CLIENT_DLL )

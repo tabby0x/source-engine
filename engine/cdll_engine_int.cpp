@@ -564,6 +564,8 @@ public:
 
 	virtual int		GetInstancesRunningCount( );
 
+	virtual void	SetRichPresenceConnect( const char *pszOverride );
+
 	virtual float	GetPausedExpireTime( void ) OVERRIDE;
 
 	virtual bool	StartDemoRecording( const char *pszFilename, const char *pszFolder = NULL );
@@ -2067,6 +2069,13 @@ void CEngineClient::FlashWindow()
 int CEngineClient::GetInstancesRunningCount( )
 {
 	return CheckOtherInstancesRunning( );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Allows newer game code to override the Steam rich presence connect string.
+//-----------------------------------------------------------------------------
+void CEngineClient::SetRichPresenceConnect( const char *pszOverride )
+{
 }
 
 //-----------------------------------------------------------------------------

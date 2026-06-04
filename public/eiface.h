@@ -84,6 +84,14 @@ struct bbox_t
 	Vector maxs;
 };
 
+struct WorkshopMapDesc_t
+{
+	char	szMapName[MAX_PATH];
+	char	szOriginalMapName[MAX_PATH];
+	uint32	uTimestamp;
+	bool	bDownloaded;
+};
+
 //-----------------------------------------------------------------------------
 // Purpose: Interface the engine exposes to the game DLL
 //-----------------------------------------------------------------------------

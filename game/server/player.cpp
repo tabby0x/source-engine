@@ -647,6 +647,7 @@ CBasePlayer::CBasePlayer( )
 	}
 
 	m_flFlashTime = -1;
+	m_flLastObjectiveTime = -1.f;
 	pl.fixangle = FIXANGLE_ABSOLUTE;
 	pl.hltv = false;
 	pl.replay = false;
@@ -662,6 +663,8 @@ CBasePlayer::CBasePlayer( )
 	m_bForceOrigin = false;
 	m_hVehicle = NULL;
 	m_pCurrentCommand = NULL;
+	m_iLockViewanglesTickNumber = 0;
+	m_qangLockViewangles.Init();
 	
 	// Setup our default FOV
 	m_iDefaultFOV = g_pGameRules->DefaultFOV();
@@ -671,6 +674,7 @@ CBasePlayer::CBasePlayer( )
 	m_nUpdateRate = 20;  // cl_updaterate defualt
 	m_fLerpTime = 0.1f; // cl_interp default
 	m_bPredictWeapons = true;
+	m_bRequestPredict = true;
 	m_bLagCompensation = false;
 	m_flLaggedMovementValue = 1.0f;
 	m_StuckLast = 0;
@@ -3501,6 +3505,8 @@ void CBasePlayer::ForceSimulation()
 	m_nSimulationTick = -1;
 }
 
+ConVar sv_usercmd_custom_random_seed( "sv_usercmd_custom_random_seed", "1", FCVAR_CHEAT, "When enabled server will populate an additional random seed independent of the client" );
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 // Input  : *buf - 
@@ -3525,6 +3531,16 @@ void CBasePlayer::ProcessUsercmds( CUserCmd *cmds, int numcmds, int totalcmds,
 		if ( !IsUserCmdDataValid( pCmd ) )
 		{
 			pCmd->MakeInert();
+		}
+
+		if ( sv_usercmd_custom_random_seed.GetBool() )
+		{
+			float fltTimeNow = float( Plat_FloatTime() * 1000.0 );
+			pCmd->server_random_seed = *reinterpret_cast<int *>( (char *)&fltTimeNow );
+		}
+		else
+		{
+			pCmd->server_random_seed = pCmd->random_seed;
 		}
 
 		ctx->cmds.AddToTail( *pCmd );
@@ -7608,7 +7624,7 @@ void CBasePlayer::PlayWearableAnimsForPlaybackEvent( wearableanimplayback_t iPla
 // Purpose: Put the player in the specified team
 //-----------------------------------------------------------------------------
 
-void CBasePlayer::ChangeTeam( int iTeamNum, bool bAutoTeam, bool bSilent)
+void CBasePlayer::ChangeTeam( int iTeamNum, bool bAutoTeam, bool bSilent, bool bAutoBalance /*= false*/ )
 {
 	if ( !GetGlobalTeam( iTeamNum ) )
 	{
@@ -7652,6 +7668,11 @@ void CBasePlayer::ChangeTeam( int iTeamNum, bool bAutoTeam, bool bSilent)
 	}
 
 	BaseClass::ChangeTeam( iTeamNum );
+}
+
+bool CBasePlayer::CanPlayerTalk()
+{
+	return true;
 }
 
 
@@ -8933,20 +8954,50 @@ bool CBasePlayer::HasAnyAmmoOfType( int nAmmoIndex )
 	return false;
 }
 
+CVoteController *CBasePlayer::GetTeamVoteController()
+{
+	return g_voteControllerGlobal;
+}
+
 bool CBasePlayer::HandleVoteCommands( const CCommand &args )
 {
-	if( g_voteController == NULL )
+	if( !g_voteControllerGlobal && !GetTeamVoteController()  )
 		return false;
 
 	if(  FStrEq( args[0], "Vote" ) )
 	{
-		if( args.ArgC() < 2 )
+		if( args.ArgC() < 3 )
 			return true;
 
-		const char *arg2 = args[1];
+		const char *pszVoteIdx = args[1];
+		int nVoteIdx = V_atoi( pszVoteIdx );
+
+		const char *arg2 = args[2];
 		char szResultString[MAX_COMMAND_LENGTH];
 
-		CVoteController::TryCastVoteResult nTryResult = g_voteController->TryCastVote( entindex(), arg2 );
+		CVoteController *pVoteController = NULL;
+
+		// Is there a global or team vote to participate in and if so, which?
+		if ( g_voteControllerGlobal && g_voteControllerGlobal->IsAVoteInProgress() && g_voteControllerGlobal->GetVoteID() == nVoteIdx )
+		{
+			pVoteController = g_voteControllerGlobal;
+		}
+		else if ( GetTeamVoteController() && GetTeamVoteController()->IsAVoteInProgress() && GetTeamVoteController()->GetVoteID() == nVoteIdx )
+		{
+			pVoteController = GetTeamVoteController();
+		}
+		else
+		{
+			Q_snprintf( szResultString, MAX_COMMAND_LENGTH, "Vote failed: no vote with ID %d in progress.\n", nVoteIdx );
+			DevMsg( "%s", szResultString );
+
+			return true;
+		}
+
+		if ( !pVoteController )
+			return true;
+
+		CVoteController::TryCastVoteResult nTryResult = pVoteController->TryCastVote( entindex(), arg2 );
 		switch( nTryResult )
 		{
 		case CVoteController::CAST_OK:
@@ -9532,3 +9583,14 @@ uint64 CBasePlayer::GetSteamIDAsUInt64( void )
 	return 0;
 }
 #endif // NO_STEAM
+
+//-----------------------------------------------------------------------------
+// Purpose: Send a data table to every client except the owning player.
+//-----------------------------------------------------------------------------
+void* SendProxy_SendNonLocalDataTable( const SendProp *pProp, const void *pStruct, const void *pVarData, CSendProxyRecipients *pRecipients, int objectID )
+{
+	pRecipients->SetAllRecipients();
+	pRecipients->ClearRecipient( objectID - 1 );
+	return ( void * )pVarData;
+}
+REGISTER_SEND_PROXY_NON_MODIFIED_POINTER( SendProxy_SendNonLocalDataTable );

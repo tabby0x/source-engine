@@ -72,6 +72,23 @@ END_DATADESC()
 IMPLEMENT_SERVERCLASS_ST( NextBotCombatCharacter, DT_NextBot )
 END_SEND_TABLE()
 
+//-----------------------------------------------------------------------------------------------------
+BEGIN_ENT_SCRIPTDESC( NextBotCombatCharacter, CBaseCombatCharacter, "Nextbot combat character" )
+	DEFINE_SCRIPTFUNC( GetBotId, "Get this bot's id" )
+	DEFINE_SCRIPTFUNC( FlagForUpdate, "Flag this bot for update" )
+	DEFINE_SCRIPTFUNC( IsFlaggedForUpdate, "Is this bot flagged for update" )
+	DEFINE_SCRIPTFUNC( GetTickLastUpdate, "Get last update tick" )
+	DEFINE_SCRIPTFUNC_WRAPPED( GetLocomotionInterface, "Get this bot's locomotion interface" )
+	DEFINE_SCRIPTFUNC_WRAPPED( GetBodyInterface, "Get this bot's body interface" )
+	DEFINE_SCRIPTFUNC_WRAPPED( GetIntentionInterface, "Get this bot's intention interface" )
+	DEFINE_SCRIPTFUNC_WRAPPED( GetVisionInterface, "Get this bot's vision interface" )
+	DEFINE_SCRIPTFUNC_WRAPPED( IsEnemy, "Return true if given entity is our enemy" )
+	DEFINE_SCRIPTFUNC_WRAPPED( IsFriend, "Return true if given entity is our friend" )
+	DEFINE_SCRIPTFUNC( IsImmobile, "Return true if we haven't moved in awhile" )
+	DEFINE_SCRIPTFUNC( GetImmobileDuration, "How long have we been immobile" )
+	DEFINE_SCRIPTFUNC( ClearImmobileStatus, "Clear immobile status" )
+	DEFINE_SCRIPTFUNC( GetImmobileSpeedThreshold, "Return units/second below which this actor is considered immobile" )
+END_SCRIPTDESC();
 
 //-----------------------------------------------------------------------------------------------------
 NextBotDestroyer::NextBotDestroyer( int team )

@@ -49,7 +49,7 @@ BEGIN_SCRIPTDESC_ROOT( CTakeDamageInfo, "Damage information handler." )
 	DEFINE_SCRIPTFUNC( AddDamage, "Adds to the damage." )
 	DEFINE_SCRIPTFUNC( SubtractDamage, "Removes from the damage." )
 	DEFINE_SCRIPTFUNC( GetDamageBonus, "Gets the damage bonus." )
-	DEFINE_SCRIPTFUNC( SetDamageBonus, "Sets the damage bonus." )
+	DEFINE_SCRIPTFUNC_NAMED( ScriptSetDamageBonus, "SetDamageBonus", "Sets the damage bonus." )
 
 	DEFINE_SCRIPTFUNC( GetBaseDamage, "Gets the base damage." )
 	DEFINE_SCRIPTFUNC( BaseDamageIsValid, "Checks if the base damage is valid." )
@@ -115,7 +115,10 @@ void CTakeDamageInfo::Init( CBaseEntity *pInflictor, CBaseEntity *pAttacker, CBa
 	m_iDamagedOtherPlayers = 0;
 	m_iPlayerPenetrationCount = 0;
 	m_flDamageBonus = 0.f;
+	m_hDamageBonusProvider = NULL;
 	m_bForceFriendlyFire = false;
+	m_flDamageForForce = 0.f;
+	m_eCritType = CRIT_NONE;
 }
 
 CTakeDamageInfo::CTakeDamageInfo()
@@ -264,6 +267,13 @@ void CTakeDamageInfo::ScriptSetAttacker( HSCRIPT pAttacker )
 {
 	SetAttacker( ToEnt( pAttacker ) );
 }
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+void CTakeDamageInfo::ScriptSetDamageBonus( float flBonus )
+{
+	SetDamageBonus( flBonus );
+}
 #endif
 
 // -------------------------------------------------------------------------------------------------- //
@@ -344,6 +354,7 @@ void AddMultiDamage( const CTakeDamageInfo &info, CBaseEntity *pEntity )
 	g_MultiDamage.SetReportedPosition( info.GetReportedPosition() );
 	g_MultiDamage.SetMaxDamage( MAX( g_MultiDamage.GetMaxDamage(), info.GetDamage() ) );
 	g_MultiDamage.SetAmmoType( info.GetAmmoType() );
+	g_MultiDamage.SetCritType( info.GetCritType() );
 
 	if ( g_MultiDamage.GetPlayerPenetrationCount() == 0 )
 	{
@@ -546,6 +557,18 @@ void CTakeDamageInfo::DebugGetDamageTypeString(unsigned int damageType, char *ou
 			outbuflength -= charsWrit; // reduce the chars left
 			outbuf += charsWrit; // advance the output pointer (now it sits on the null terminator)
 		}
+	}
+}
+
+void CTakeDamageInfo::SetCritType( ECritType eType )
+{
+	if ( eType == CRIT_NONE )
+	{
+		m_eCritType = eType;
+	}
+	else
+	{
+		m_eCritType = ( eType > m_eCritType ) ? eType : m_eCritType;
 	}
 }
 

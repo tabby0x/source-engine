@@ -2170,6 +2170,278 @@ void C_OP_PositionLock::Operate( CParticleCollection *pParticles, float flStreng
 
 
 
+static inline int TF2Particle_ClampControlPoint( int nControlPoint )
+{
+	return max( 0, min( MAX_PARTICLE_CONTROL_POINTS - 1, nControlPoint ) );
+}
+
+static inline void TF2Particle_ClampControlPointRange( int &nStartControlPoint, int &nEndControlPoint )
+{
+	nStartControlPoint = TF2Particle_ClampControlPoint( nStartControlPoint );
+	nEndControlPoint = TF2Particle_ClampControlPoint( nEndControlPoint );
+	if ( nEndControlPoint < nStartControlPoint )
+	{
+		nEndControlPoint = nStartControlPoint;
+	}
+}
+
+static inline uint64 TF2Particle_ControlPointRangeMask( int nStartControlPoint, int nEndControlPoint )
+{
+	TF2Particle_ClampControlPointRange( nStartControlPoint, nEndControlPoint );
+
+	uint64 nMask = 0;
+	for ( int i = nStartControlPoint; i <= nEndControlPoint; ++i )
+	{
+		nMask |= ( 1ULL << i );
+	}
+	return nMask;
+}
+
+static inline int TF2Particle_GetParticleID( CParticleCollection *pParticles, int nParticle )
+{
+	const int *pParticleID = pParticles->GetIntAttributePtr( PARTICLE_ATTRIBUTE_PARTICLE_ID, nParticle );
+	return pParticleID ? *pParticleID : nParticle;
+}
+
+static inline int TF2Particle_SelectTargetCP( CParticleCollection *pParticles, int nParticle, int nStartControlPoint, int nEndControlPoint )
+{
+	TF2Particle_ClampControlPointRange( nStartControlPoint, nEndControlPoint );
+
+	const int *pAssignedCP = pParticles->IsPerParticleAttributeInitialized( PARTICLE_ATTRIBUTE_HITBOX_INDEX )
+		? pParticles->GetIntAttributePtr( PARTICLE_ATTRIBUTE_HITBOX_INDEX, nParticle ) : NULL;
+	if ( pAssignedCP && *pAssignedCP >= nStartControlPoint && *pAssignedCP <= nEndControlPoint )
+	{
+		return *pAssignedCP;
+	}
+
+	int nTargetCP = pParticles->GetControlPointIndex();
+	if ( nTargetCP >= nStartControlPoint && nTargetCP <= nEndControlPoint )
+	{
+		return nTargetCP;
+	}
+
+	const int nRange = nEndControlPoint - nStartControlPoint + 1;
+	const int nParticleID = TF2Particle_GetParticleID( pParticles, nParticle );
+	return nStartControlPoint + ( abs( nParticleID ) % nRange );
+}
+
+static inline void TF2Particle_EvaluatePath( CParticleCollection *pParticles, const CPathParameters &pathParams, float flTime, float flT, Vector &vecOut )
+{
+	Vector vecStart, vecMid, vecEnd;
+	pParticles->CalculatePathValues( pathParams, flTime, &vecStart, &vecMid, &vecEnd );
+
+	Vector vecDelta0 = vecMid - vecStart;
+	Vector vecDelta1 = vecEnd - vecMid;
+	Vector vecL0 = vecStart + flT * vecDelta0;
+	Vector vecL1 = vecMid + flT * vecDelta1;
+	vecOut = vecL0 + ( vecL1 - vecL0 ) * flT;
+}
+
+
+//-----------------------------------------------------------------------------
+// Follow assigned target control point
+//-----------------------------------------------------------------------------
+class C_OP_MovementFollowCP : public CParticleOperatorInstance
+{
+	DECLARE_PARTICLE_OPERATOR( C_OP_MovementFollowCP );
+
+	int m_nStartControlPoint;
+	int m_nEndControlPoint;
+	float m_flCatchUpSpeed;
+	float m_flLerpToCPRadiusSpeed;
+	bool m_bUpdateParticleLifeTime;
+
+	uint32 GetWrittenAttributes( void ) const
+	{
+		uint32 nMask = PARTICLE_ATTRIBUTE_XYZ_MASK | PARTICLE_ATTRIBUTE_PREV_XYZ_MASK;
+		if ( m_bUpdateParticleLifeTime )
+		{
+			nMask |= PARTICLE_ATTRIBUTE_LIFE_DURATION_MASK;
+		}
+		return nMask;
+	}
+
+	uint32 GetReadAttributes( void ) const
+	{
+		return PARTICLE_ATTRIBUTE_XYZ_MASK | PARTICLE_ATTRIBUTE_PREV_XYZ_MASK |
+			PARTICLE_ATTRIBUTE_HITBOX_INDEX_MASK | PARTICLE_ATTRIBUTE_PARTICLE_ID_MASK;
+	}
+
+	virtual uint64 GetReadControlPointMask() const
+	{
+		return TF2Particle_ControlPointRangeMask( m_nStartControlPoint, m_nEndControlPoint );
+	}
+
+	void InitParams( CParticleSystemDefinition *pDef, CDmxElement *pElement )
+	{
+		TF2Particle_ClampControlPointRange( m_nStartControlPoint, m_nEndControlPoint );
+	}
+
+	virtual void Operate( CParticleCollection *pParticles, float flStrength, void *pContext ) const;
+};
+
+DEFINE_PARTICLE_OPERATOR( C_OP_MovementFollowCP, "Movement Follow CP", OPERATOR_GENERIC );
+
+BEGIN_PARTICLE_OPERATOR_UNPACK( C_OP_MovementFollowCP )
+	DMXELEMENT_UNPACK_FIELD( "starting control point", "0", int, m_nStartControlPoint )
+	DMXELEMENT_UNPACK_FIELD( "maximum end control point", "30", int, m_nEndControlPoint )
+	DMXELEMENT_UNPACK_FIELD( "catch up speed", "0", float, m_flCatchUpSpeed )
+	DMXELEMENT_UNPACK_FIELD( "lerp to CP radius speed", "0", float, m_flLerpToCPRadiusSpeed )
+	DMXELEMENT_UNPACK_FIELD( "update particle life time", "0", bool, m_bUpdateParticleLifeTime )
+END_PARTICLE_OPERATOR_UNPACK( C_OP_MovementFollowCP )
+
+void C_OP_MovementFollowCP::Operate( CParticleCollection *pParticles, float flStrength, void *pContext ) const
+{
+	const float flDt = max( pParticles->m_flDt, 0.0f );
+
+	for ( int i = 0; i < pParticles->m_nActiveParticles; ++i )
+	{
+		float *xyz = pParticles->GetFloatAttributePtrForWrite( PARTICLE_ATTRIBUTE_XYZ, i );
+		float *pxyz = pParticles->GetFloatAttributePtrForWrite( PARTICLE_ATTRIBUTE_PREV_XYZ, i );
+		if ( !xyz || !pxyz )
+		{
+			continue;
+		}
+
+		const int nTargetCP = TF2Particle_SelectTargetCP( pParticles, i, m_nStartControlPoint, m_nEndControlPoint );
+		const CParticleControlPoint &targetCP = pParticles->m_ControlPoints[nTargetCP];
+
+		Vector vecXYZ, vecPrevXYZ;
+		SetVectorFromAttribute( vecXYZ, xyz );
+		SetVectorFromAttribute( vecPrevXYZ, pxyz );
+
+		const Vector vecCPDelta = targetCP.m_Position - targetCP.m_PrevPosition;
+		Vector vecDesired = vecXYZ + vecCPDelta;
+
+		Vector vecToCP = targetCP.m_Position - vecDesired;
+		float flDistanceToCP = vecToCP.Length();
+		if ( m_flCatchUpSpeed > 0.0f && flDistanceToCP > 1.0e-3f )
+		{
+			const float flMaxStep = m_flCatchUpSpeed * flDt;
+			vecDesired += vecToCP * ( min( flMaxStep, flDistanceToCP ) / flDistanceToCP );
+		}
+
+		vecToCP = targetCP.m_Position - vecDesired;
+		flDistanceToCP = vecToCP.Length();
+		if ( m_flLerpToCPRadiusSpeed > 0.0f && flDistanceToCP > max( targetCP.m_flRadius, 0.0f ) && flDistanceToCP > 1.0e-3f )
+		{
+			const float flDistancePastRadius = flDistanceToCP - max( targetCP.m_flRadius, 0.0f );
+			const float flMaxStep = m_flLerpToCPRadiusSpeed * flDt;
+			vecDesired += vecToCP * ( min( flMaxStep, flDistancePastRadius ) / flDistanceToCP );
+		}
+
+		Vector vecDelta = vecDesired - vecXYZ;
+		Vector vecNewXYZ, vecNewPrevXYZ;
+		VectorLerp( vecXYZ, vecDesired, flStrength, vecNewXYZ );
+		VectorLerp( vecPrevXYZ, vecPrevXYZ + vecDelta, flStrength, vecNewPrevXYZ );
+		SetVectorAttribute( xyz, vecNewXYZ );
+		SetVectorAttribute( pxyz, vecNewPrevXYZ );
+
+		if ( m_bUpdateParticleLifeTime )
+		{
+			float *pLifeDuration = pParticles->GetFloatAttributePtrForWrite( PARTICLE_ATTRIBUTE_LIFE_DURATION, i );
+			if ( pLifeDuration && targetCP.m_flDuration > 0.0f )
+			{
+				*pLifeDuration = Lerp( flStrength, *pLifeDuration, targetCP.m_flDuration );
+			}
+		}
+	}
+}
+
+
+//-----------------------------------------------------------------------------
+// Lock particles to a saved position along a CP path
+//-----------------------------------------------------------------------------
+class C_OP_LockToSavedPositionAlongPath : public CParticleOperatorInstance
+{
+	DECLARE_PARTICLE_OPERATOR( C_OP_LockToSavedPositionAlongPath );
+
+	CPathParameters m_PathParams;
+	bool m_bUseSequentialCPPairs;
+
+	uint32 GetWrittenAttributes( void ) const
+	{
+		return PARTICLE_ATTRIBUTE_XYZ_MASK | PARTICLE_ATTRIBUTE_PREV_XYZ_MASK;
+	}
+
+	uint32 GetReadAttributes( void ) const
+	{
+		return PARTICLE_ATTRIBUTE_XYZ_MASK | PARTICLE_ATTRIBUTE_PREV_XYZ_MASK |
+			PARTICLE_ATTRIBUTE_PARTICLE_ID_MASK | PARTICLE_ATTRIBUTE_HITBOX_INDEX_MASK;
+	}
+
+	virtual uint64 GetReadControlPointMask() const
+	{
+		return TF2Particle_ControlPointRangeMask( m_PathParams.m_nStartControlPointNumber, m_PathParams.m_nEndControlPointNumber );
+	}
+
+	void InitParams( CParticleSystemDefinition *pDef, CDmxElement *pElement )
+	{
+		m_PathParams.ClampControlPointIndices();
+	}
+
+	virtual void Operate( CParticleCollection *pParticles, float flStrength, void *pContext ) const;
+};
+
+DEFINE_PARTICLE_OPERATOR( C_OP_LockToSavedPositionAlongPath, "Movement Lock to Saved Position Along Path", OPERATOR_GENERIC );
+
+BEGIN_PARTICLE_OPERATOR_UNPACK( C_OP_LockToSavedPositionAlongPath )
+	DMXELEMENT_UNPACK_FIELD( "bulge", "0", float, m_PathParams.m_flBulge )
+	DMXELEMENT_UNPACK_FIELD( "start control point number", "0", int, m_PathParams.m_nStartControlPointNumber )
+	DMXELEMENT_UNPACK_FIELD( "end control point number", "0", int, m_PathParams.m_nEndControlPointNumber )
+	DMXELEMENT_UNPACK_FIELD( "bulge control 0=random 1=orientation of start pnt 2=orientation of end point", "0", int, m_PathParams.m_nBulgeControl )
+	DMXELEMENT_UNPACK_FIELD( "mid point position", "0.5", float, m_PathParams.m_flMidPoint )
+	DMXELEMENT_UNPACK_FIELD( "Use sequential CP pairs between start and end point", "0", bool, m_bUseSequentialCPPairs )
+END_PARTICLE_OPERATOR_UNPACK( C_OP_LockToSavedPositionAlongPath )
+
+void C_OP_LockToSavedPositionAlongPath::Operate( CParticleCollection *pParticles, float flStrength, void *pContext ) const
+{
+	const int nStartCP = m_PathParams.m_nStartControlPointNumber;
+	const int nEndCP = m_PathParams.m_nEndControlPointNumber;
+	const int nSegmentCount = max( 1, nEndCP - nStartCP );
+	const int nRandomOffset = pParticles->OperatorRandomSampleOffset();
+
+	for ( int i = 0; i < pParticles->m_nActiveParticles; ++i )
+	{
+		float *xyz = pParticles->GetFloatAttributePtrForWrite( PARTICLE_ATTRIBUTE_XYZ, i );
+		float *pxyz = pParticles->GetFloatAttributePtrForWrite( PARTICLE_ATTRIBUTE_PREV_XYZ, i );
+		if ( !xyz || !pxyz )
+		{
+			continue;
+		}
+
+		CPathParameters pathParams = m_PathParams;
+		const int nParticleID = TF2Particle_GetParticleID( pParticles, i );
+		if ( m_bUseSequentialCPPairs && nEndCP > nStartCP )
+		{
+			int nPairEndCP = TF2Particle_SelectTargetCP( pParticles, i, nStartCP + 1, nEndCP );
+			if ( nPairEndCP <= nStartCP || nPairEndCP > nEndCP )
+			{
+				nPairEndCP = nStartCP + 1 + ( abs( nParticleID ) % nSegmentCount );
+			}
+			pathParams.m_nStartControlPointNumber = nPairEndCP - 1;
+			pathParams.m_nEndControlPointNumber = nPairEndCP;
+		}
+
+		const float flT = pParticles->RandomFloat( nParticleID + nRandomOffset, 0.0f, 1.0f );
+		Vector vecPathPosition;
+		TF2Particle_EvaluatePath( pParticles, pathParams, pParticles->m_flCurTime, flT, vecPathPosition );
+
+		Vector vecXYZ, vecPrevXYZ;
+		SetVectorFromAttribute( vecXYZ, xyz );
+		SetVectorFromAttribute( vecPrevXYZ, pxyz );
+		const Vector vecDelta = vecPathPosition - vecXYZ;
+
+		Vector vecNewXYZ, vecNewPrevXYZ;
+		VectorLerp( vecXYZ, vecPathPosition, flStrength, vecNewXYZ );
+		VectorLerp( vecPrevXYZ, vecPrevXYZ + vecDelta, flStrength, vecNewPrevXYZ );
+
+		SetVectorAttribute( xyz, vecNewXYZ );
+		SetVectorAttribute( pxyz, vecNewPrevXYZ );
+	}
+}
+
+
 //-----------------------------------------------------------------------------
 // Controlpoint Light
 // Determines particle color/fakes lighting using the influence of control
@@ -3110,6 +3382,149 @@ void C_OP_DistanceToCP::Operate( CParticleCollection *pParticles, float flStreng
 			//float *pOutput = pParticles->GetFloatAttributePtrForWrite( m_nFieldOutput, i );
 			//float flOutput = RemapValClamped( flDistance, m_flInputMin, m_flInputMax, flMin, flMax  );
 			//*pOutput = Lerp (flStrength, *pOutput, flOutput);
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Distance to CP Vector Operator
+//-----------------------------------------------------------------------------
+class C_OP_DistanceToCPToVector : public CParticleOperatorInstance
+{
+	DECLARE_PARTICLE_OPERATOR( C_OP_DistanceToCPToVector );
+
+	uint32 GetWrittenAttributes( void ) const
+	{
+		uint32 nMask = 1 << m_nFieldOutput;
+		if ( m_nFieldOutput == PARTICLE_ATTRIBUTE_XYZ )
+		{
+			nMask |= PARTICLE_ATTRIBUTE_PREV_XYZ_MASK;
+		}
+		return nMask;
+	}
+
+	uint32 GetReadAttributes( void ) const
+	{
+		return PARTICLE_ATTRIBUTE_XYZ_MASK;
+	}
+
+	uint32 GetReadInitialAttributes( void ) const
+	{
+		return 1 << m_nFieldOutput;
+	}
+
+	virtual uint64 GetReadControlPointMask() const
+	{
+		uint64 nMask = 1ULL << m_nStartCP;
+		if ( m_nLocalSpaceCP >= 0 )
+		{
+			nMask |= 1ULL << m_nLocalSpaceCP;
+		}
+		return nMask;
+	}
+
+	void InitParams( CParticleSystemDefinition *pDef, CDmxElement *pElement )
+	{
+		m_nCollisionGroupNumber = g_pParticleSystemMgr->Query()->GetCollisionGroupFromName( m_CollisionGroupName );
+		m_nStartCP = max( 0, min( MAX_PARTICLE_CONTROL_POINTS-1, m_nStartCP ) );
+		if ( m_nLocalSpaceCP >= 0 )
+		{
+			m_nLocalSpaceCP = max( 0, min( MAX_PARTICLE_CONTROL_POINTS-1, m_nLocalSpaceCP ) );
+		}
+	}
+
+	virtual void Operate( CParticleCollection *pParticles, float flStrength, void *pContext ) const;
+
+	int		m_nFieldOutput;
+	float	m_flInputMin;
+	float	m_flInputMax;
+	Vector	m_vecOutputMin;
+	Vector	m_vecOutputMax;
+	int		m_nStartCP;
+	int		m_nLocalSpaceCP;
+	bool	m_bLOS;
+	char	m_CollisionGroupName[128];
+	int		m_nCollisionGroupNumber;
+	float	m_flMaxTraceLength;
+	float	m_flLOSScale;
+	bool	m_bScaleInitialRange;
+	bool	m_bActiveRange;
+};
+
+DEFINE_PARTICLE_OPERATOR( C_OP_DistanceToCPToVector, "Remap Distance to Control Point to Vector", OPERATOR_GENERIC );
+
+BEGIN_PARTICLE_OPERATOR_UNPACK( C_OP_DistanceToCPToVector )
+DMXELEMENT_UNPACK_FIELD( "distance minimum","0", float, m_flInputMin )
+DMXELEMENT_UNPACK_FIELD( "distance maximum","128", float, m_flInputMax )
+DMXELEMENT_UNPACK_FIELD_USERDATA( "output field", "6", int, m_nFieldOutput, "intchoice particlefield_vector" )
+DMXELEMENT_UNPACK_FIELD( "output minimum","0 0 0", Vector, m_vecOutputMin )
+DMXELEMENT_UNPACK_FIELD( "output maximum","1 1 1", Vector, m_vecOutputMax )
+DMXELEMENT_UNPACK_FIELD( "control point","0", int, m_nStartCP )
+DMXELEMENT_UNPACK_FIELD( "local space CP","-1", int, m_nLocalSpaceCP )
+DMXELEMENT_UNPACK_FIELD( "ensure line of sight","0", bool, m_bLOS )
+DMXELEMENT_UNPACK_FIELD_STRING( "LOS collision group", "NONE", m_CollisionGroupName )
+DMXELEMENT_UNPACK_FIELD( "Maximum Trace Length", "-1", float, m_flMaxTraceLength )
+DMXELEMENT_UNPACK_FIELD( "LOS Failure Scalar", "0", float, m_flLOSScale )
+DMXELEMENT_UNPACK_FIELD( "output is scalar of initial random range","0", bool, m_bScaleInitialRange )
+DMXELEMENT_UNPACK_FIELD( "only active within specified distance","0", bool, m_bActiveRange )
+END_PARTICLE_OPERATOR_UNPACK( C_OP_DistanceToCPToVector )
+
+void C_OP_DistanceToCPToVector::Operate( CParticleCollection *pParticles, float flStrength, void *pContext ) const
+{
+	Vector vecControlPoint = pParticles->GetControlPointAtCurrentTime( m_nStartCP );
+
+	for ( int i = 0; i < pParticles->m_nActiveParticles; ++i )
+	{
+		const float *pXYZ = pParticles->GetFloatAttributePtr( PARTICLE_ATTRIBUTE_XYZ, i );
+		Vector vecPosition( pXYZ[0], pXYZ[4], pXYZ[8] );
+		Vector vecDelta = vecControlPoint - vecPosition;
+		float flDistance = vecDelta.Length();
+		if ( m_bActiveRange && ( flDistance < m_flInputMin || flDistance > m_flInputMax ) )
+		{
+			continue;
+		}
+
+		if ( m_bLOS )
+		{
+			Vector vecEndPoint = vecPosition;
+			if ( m_flMaxTraceLength != -1.0f && m_flMaxTraceLength < flDistance )
+			{
+				VectorNormalize( vecEndPoint );
+				vecEndPoint *= m_flMaxTraceLength;
+				vecEndPoint += vecControlPoint;
+			}
+
+			CBaseTrace tr;
+			g_pParticleSystemMgr->Query()->TraceLine( vecControlPoint, vecEndPoint, MASK_OPAQUE_AND_NPCS, NULL, m_nCollisionGroupNumber, &tr );
+			if ( tr.fraction != 1.0f )
+			{
+				flDistance *= tr.fraction * m_flLOSScale;
+			}
+		}
+
+		Vector vecOutput;
+		vecOutput.x = RemapValClamped( flDistance, m_flInputMin, m_flInputMax, m_vecOutputMin.x, m_vecOutputMax.x );
+		vecOutput.y = RemapValClamped( flDistance, m_flInputMin, m_flInputMax, m_vecOutputMin.y, m_vecOutputMax.y );
+		vecOutput.z = RemapValClamped( flDistance, m_flInputMin, m_flInputMax, m_vecOutputMin.z, m_vecOutputMax.z );
+
+		if ( m_bScaleInitialRange )
+		{
+			Vector vecInitialOutput;
+			const float *pInitialOutput = pParticles->GetInitialFloatAttributePtr( m_nFieldOutput, i );
+			SetVectorFromAttribute( vecInitialOutput, pInitialOutput );
+			vecOutput *= vecInitialOutput;
+		}
+
+		float *pOutput = pParticles->GetFloatAttributePtrForWrite( m_nFieldOutput, i );
+		Vector vecCurrentOutput;
+		SetVectorFromAttribute( vecCurrentOutput, pOutput );
+		VectorLerp( vecCurrentOutput, vecOutput, flStrength, vecOutput );
+		SetVectorAttribute( pOutput, vecOutput );
+
+		if ( m_nFieldOutput == PARTICLE_ATTRIBUTE_XYZ )
+		{
+			float *pPrevXYZ = pParticles->GetFloatAttributePtrForWrite( PARTICLE_ATTRIBUTE_PREV_XYZ, i );
+			SetVectorAttribute( pPrevXYZ, vecOutput );
+		}
 	}
 }
 
@@ -4559,9 +4974,12 @@ void AddBuiltInParticleOperators( void )
 	REGISTER_PARTICLE_OPERATOR( FUNCTION_OPERATOR, C_OP_OscillateVector );
 	REGISTER_PARTICLE_OPERATOR( FUNCTION_OPERATOR, C_OP_DampenToCP );	
 	REGISTER_PARTICLE_OPERATOR( FUNCTION_OPERATOR, C_OP_PositionLock );
+	REGISTER_PARTICLE_OPERATOR( FUNCTION_OPERATOR, C_OP_MovementFollowCP );
+	REGISTER_PARTICLE_OPERATOR( FUNCTION_OPERATOR, C_OP_LockToSavedPositionAlongPath );
 	REGISTER_PARTICLE_OPERATOR( FUNCTION_OPERATOR, C_OP_LockToBone );
 	REGISTER_PARTICLE_OPERATOR( FUNCTION_OPERATOR, C_OP_DistanceBetweenCPs );		
 	REGISTER_PARTICLE_OPERATOR( FUNCTION_OPERATOR, C_OP_DistanceToCP );		
+	REGISTER_PARTICLE_OPERATOR( FUNCTION_OPERATOR, C_OP_DistanceToCPToVector );
 	REGISTER_PARTICLE_OPERATOR( FUNCTION_OPERATOR, C_OP_SetControlPointToPlayer );
 	REGISTER_PARTICLE_OPERATOR( FUNCTION_OPERATOR, C_OP_SetControlPointToCenter );
 	REGISTER_PARTICLE_OPERATOR( FUNCTION_OPERATOR, C_OP_SetChildControlPoints );

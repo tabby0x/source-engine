@@ -582,18 +582,27 @@ CreateInterfaceFn CMaterialSystem::CreateShaderAPI( char const* pShaderDLL )
 	if ( !pShaderDLL )
 		return 0;
 
+	COM_TimestampedLog( "CMaterialSystem::CreateShaderAPI(%s): begin", pShaderDLL );
+
 	// Clean up the old shader
+	COM_TimestampedLog( "CMaterialSystem::CreateShaderAPI(%s): before DestroyShaderAPI", pShaderDLL );
 	DestroyShaderAPI();
+	COM_TimestampedLog( "CMaterialSystem::CreateShaderAPI(%s): after DestroyShaderAPI", pShaderDLL );
 
 	// Load the new shader
+	COM_TimestampedLog( "CMaterialSystem::CreateShaderAPI(%s): before Sys_LoadModule", pShaderDLL );
 	m_ShaderHInst = Sys_LoadModule( pShaderDLL );
+	COM_TimestampedLog( "CMaterialSystem::CreateShaderAPI(%s): after Sys_LoadModule = %p", pShaderDLL, m_ShaderHInst );
 
 	// Error loading the shader
 	if ( !m_ShaderHInst )
 		return 0;
 
 	// Get our class factory methods...
-	return Sys_GetFactory( m_ShaderHInst );
+	COM_TimestampedLog( "CMaterialSystem::CreateShaderAPI(%s): before Sys_GetFactory", pShaderDLL );
+	CreateInterfaceFn factory = Sys_GetFactory( m_ShaderHInst );
+	COM_TimestampedLog( "CMaterialSystem::CreateShaderAPI(%s): after Sys_GetFactory = %p", pShaderDLL, factory );
+	return factory;
 }
 
 void CMaterialSystem::DestroyShaderAPI()
@@ -615,6 +624,8 @@ void CMaterialSystem::DestroyShaderAPI()
 //-----------------------------------------------------------------------------
 void CMaterialSystem::SetShaderAPI( char const *pShaderAPIDLL )
 {
+	COM_TimestampedLog( "CMaterialSystem::SetShaderAPI(%s): begin", pShaderAPIDLL ? pShaderAPIDLL : "<null>" );
+
 	if ( m_ShaderAPIFactory )
 	{
 		Error( "Cannot set the shader API twice!\n" );
@@ -630,12 +641,15 @@ void CMaterialSystem::SetShaderAPI( char const *pShaderAPIDLL )
 	int len = Q_strlen( pShaderAPIDLL ) + 1;
 	m_pShaderDLL = new char[len];
 	memcpy( m_pShaderDLL, pShaderAPIDLL, len );
+	COM_TimestampedLog( "CMaterialSystem::SetShaderAPI(%s): copied shader dll name", pShaderAPIDLL );
 
 	m_ShaderAPIFactory = CreateShaderAPI( pShaderAPIDLL );
+	COM_TimestampedLog( "CMaterialSystem::SetShaderAPI(%s): CreateShaderAPI returned %p", pShaderAPIDLL, m_ShaderAPIFactory );
 	if ( !m_ShaderAPIFactory )
 	{
 		DestroyShaderAPI();
 	}
+	COM_TimestampedLog( "CMaterialSystem::SetShaderAPI(%s): end", pShaderAPIDLL );
 }
 	
 

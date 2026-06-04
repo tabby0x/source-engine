@@ -6,6 +6,7 @@
 //=============================================================================//
 
 #include "vgui_controls/pch_vgui_controls.h"
+#include "tier1/strtools.h"
 
 // memdbgon must be the last include file in a .cpp file
 #include "tier0/memdbgon.h"
@@ -2731,10 +2732,28 @@ MenuItem* MenuBuilder::AddMenuItem( const char *pszButtonText, KeyValues *kvUser
 	return m_pMenu->GetMenuItem( m_pMenu->AddMenuItem( pszButtonText, kvUserData, m_pActionTarget ) );
 }
 
+MenuItem* MenuBuilder::AddMenuItem( const wchar_t *pwszButtonText, const char *pszCommand, const char *pszCategoryName )
+{
+	AddSepratorIfNeeded( pszCategoryName );
+	return m_pMenu->GetMenuItem( m_pMenu->AddMenuItem( CStrAutoEncode( pwszButtonText ).ToString(), pwszButtonText, pszCommand, m_pActionTarget ) );
+}
+
+MenuItem* MenuBuilder::AddMenuItem( const wchar_t *pwszButtonText, KeyValues *kvUserData, const char *pszCategoryName )
+{
+	AddSepratorIfNeeded( pszCategoryName );
+	return m_pMenu->GetMenuItem( m_pMenu->AddMenuItem( CStrAutoEncode( pwszButtonText ).ToString(), pwszButtonText, kvUserData, m_pActionTarget ) );
+}
+
 MenuItem* MenuBuilder::AddCascadingMenuItem( const char *pszButtonText, Menu *pSubMenu, const char *pszCategoryName )
 {
 	AddSepratorIfNeeded( pszCategoryName );
 	return m_pMenu->GetMenuItem( m_pMenu->AddCascadingMenuItem( pszButtonText, m_pActionTarget, pSubMenu ) );
+}
+
+MenuItem* MenuBuilder::AddCascadingMenuItem( const wchar_t *pwszButtonText, Menu *pSubMenu, const char *pszCategoryName )
+{
+	AddSepratorIfNeeded( pszCategoryName );
+	return m_pMenu->GetMenuItem( m_pMenu->AddCascadingMenuItem( CStrAutoEncode( pwszButtonText ).ToString(), m_pActionTarget, pSubMenu ) );
 }
 
 void MenuBuilder::AddSepratorIfNeeded( const char *pszCategoryName )

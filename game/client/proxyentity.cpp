@@ -26,7 +26,10 @@ void CEntityMaterialProxy::Release( void )
 void CEntityMaterialProxy::OnBind( void *pRenderable )
 {
 	if( !pRenderable )
+	{
+		OnBindNotEntity( pRenderable );
 		return;
+	}
 
 	IClientRenderable *pRend = ( IClientRenderable* )pRenderable;
 	C_BaseEntity *pEnt = pRend->GetIClientUnknown()->GetBaseEntity();
@@ -37,5 +40,9 @@ void CEntityMaterialProxy::OnBind( void *pRenderable )
 		{
 			ToolFramework_RecordMaterialParams( GetMaterial() );
 		}
+	}
+	else
+	{
+		OnBindNotEntity( pRenderable );
 	}
 }

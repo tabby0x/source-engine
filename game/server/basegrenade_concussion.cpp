@@ -44,7 +44,7 @@ void CBaseGrenadeConcussion::FallThink(void)
 {
 	if (!IsInWorld())
 	{
-		Remove( );
+		UTIL_Remove( this );
 		return;
 	}
 	CSoundEnt::InsertSound ( SOUND_DANGER, GetAbsOrigin() + GetAbsVelocity() * 0.5, GetAbsVelocity().Length( ), 0.2 );

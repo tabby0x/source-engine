@@ -5630,7 +5630,7 @@ void CNavArea::ComputeVisibilityToMesh( void )
 /**
  * The center and all four corners must ALL be visible
  */
-bool CNavArea::IsEntirelyVisible( const Vector &eye, CBaseEntity *ignore ) const
+bool CNavArea::IsEntirelyVisible( const Vector &eye, const CBaseEntity *ignore ) const
 {
 	Vector corner;
 	trace_t result;
@@ -5663,7 +5663,7 @@ bool CNavArea::IsEntirelyVisible( const Vector &eye, CBaseEntity *ignore ) const
 /**
  * The center or any of the four corners may be visible
  */
-bool CNavArea::IsPartiallyVisible( const Vector &eye, CBaseEntity *ignore ) const
+bool CNavArea::IsPartiallyVisible( const Vector &eye, const CBaseEntity *ignore ) const
 {
 	Vector corner;
 	trace_t result;

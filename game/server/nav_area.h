@@ -15,6 +15,8 @@
 #include "nav_ladder.h"
 #include "tier1/memstack.h"
 
+#define DebuggerBreakOnNaN_StagingOnly( _val )
+
 // BOTPORT: Clean up relationship between team index and danger storage in nav areas
 enum { MAX_NAV_TEAMS = 2 };
 
@@ -515,8 +517,8 @@ public:
 		}
 	};
 
-	virtual bool IsEntirelyVisible( const Vector &eye, CBaseEntity *ignore = NULL ) const;				// return true if entire area is visible from given eyepoint (CPU intensive)
-	virtual bool IsPartiallyVisible( const Vector &eye, CBaseEntity *ignore = NULL ) const;				// return true if any portion of the area is visible from given eyepoint (CPU intensive)
+	virtual bool IsEntirelyVisible( const Vector &eye, const CBaseEntity *ignore = NULL ) const;				// return true if entire area is visible from given eyepoint (CPU intensive)
+	virtual bool IsPartiallyVisible( const Vector &eye, const CBaseEntity *ignore = NULL ) const;				// return true if any portion of the area is visible from given eyepoint (CPU intensive)
 
 	virtual bool IsPotentiallyVisible( const CNavArea *area ) const;		// return true if given area is potentially visible from somewhere in this area (very fast)
 	virtual bool IsPotentiallyVisibleToTeam( int team ) const;				// return true if any portion of this area is visible to anyone on the given team (very fast)

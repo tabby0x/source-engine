@@ -96,6 +96,7 @@ public:
 	void SetDirForward( bool bForward );
 	void SetSpeed( float flSpeed, bool bAccel = false );
 	void Use( CBaseEntity *pActivator, CBaseEntity *pCaller, USE_TYPE useType, float value );
+	void SetSpeedDirAccel( float flNewSpeed );
 	
 	// Input handlers
 	void InputSetSpeed( inputdata_t &inputdata );
@@ -109,6 +110,7 @@ public:
 	void InputStartBackward( inputdata_t &inputdata );
 	void InputToggle( inputdata_t &inputdata );
 	void InputSetSpeedDirAccel( inputdata_t &inputdata );
+	void InputSetSpeedForwardModifier( inputdata_t &inputdata );
 	void InputMoveToPathNode( inputdata_t &inputdata );
 	void InputTeleportToPathNode( inputdata_t &inputdata );
 
@@ -129,6 +131,7 @@ public:
 
 	virtual bool IsBaseTrain( void ) const { return true; }
 	Vector ScriptGetFuturePosition( float flSeconds, float flMinSpeed );
+	void SetSpeedForwardModifier( float flModifier );
 
 private:
 
@@ -202,6 +205,8 @@ private:
 	bool		m_bAccelToSpeed;
 
 	float		m_flNextMPSoundTime;
+	float		m_flSpeedForwardModifier;
+	float		m_flUnmodifiedDesiredSpeed;
 };
 
 

@@ -67,6 +67,7 @@ static const char *s_SpectatorModes[] =
 	"#Spec_Mode2",	// 	OBS_MODE_FIXED,		
 	"#Spec_Mode3",	// 	OBS_MODE_IN_EYE,	
 	"#Spec_Mode4",	// 	OBS_MODE_CHASE,		
+	"#Spec_Mode_POI",	// 	OBS_MODE_POI, PASSTIME
 	"#Spec_Mode5",	// 	OBS_MODE_ROAMING,	
 };
 

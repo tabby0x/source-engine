@@ -77,6 +77,14 @@ bool CP4File::Revert( void )
 	return p4->RevertFile( m_sFilename.String() );
 }
 
+bool CP4File::Delete( void )
+{
+	if ( !p4 )
+		return true;
+
+	return p4->OpenFileForDelete( m_sFilename.String() );
+}
+
 // Is the file in perforce?
 bool CP4File::IsFileInPerforce()
 {
@@ -94,6 +102,14 @@ bool CP4File::SetFileType(const CUtlString& desiredFileType)
 	return p4->SetFileType( m_sFilename.String(), desiredFileType.String() );*/
 	Error("CP4File::SetFileType is unimplemented");
 	return false;
+}
+
+P4FileState_t CP4File::GetFileState()
+{
+	if ( !p4 )
+		return P4FILE_UNOPENED;
+
+	return p4->GetFileState( m_sFilename.String() );
 }
 
 

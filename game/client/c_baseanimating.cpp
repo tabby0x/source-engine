@@ -842,6 +842,8 @@ C_BaseAnimating::C_BaseAnimating() :
 	m_bDynamicModelAllowed = false;
 	m_bDynamicModelPending = false;
 	m_bResetSequenceInfoOnLoad = false;
+	m_bInitModelEffects = false;
+	m_bHasAttachedParticles = false;
 
 	Q_memset(&m_mouth, 0, sizeof(m_mouth));
 	m_flCycle = 0;
@@ -1335,6 +1337,8 @@ void C_BaseAnimating::InitModelEffects( void )
 {
 	m_bInitModelEffects = true;
 	TermRopes();
+	ParticleProp()->StopParticlesInvolving( this );
+	m_bHasAttachedParticles = false;
 }
 
 //-----------------------------------------------------------------------------
@@ -1418,6 +1422,7 @@ void C_BaseAnimating::DelayedInitModelEffects( void )
 					#endif
 					// Spawn the particle effect
 					ParticleProp()->Create( pszParticleEffect, (ParticleAttachment_t)iAttachType, iAttachment );
+					m_bHasAttachedParticles = true;
 				}
 			}
 		}
@@ -3159,7 +3164,14 @@ bool C_BaseAnimating::SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones, i
 		}
 		else
 		{
-			Warning( "SetupBones: invalid bone array size (%d - needs %d)\n", nMaxBones, m_CachedBoneData.Count() );
+			const model_t *pModel = GetModel();
+			const char *pszModelName = pModel ? modelinfo->GetModelName( pModel ) : "<no model>";
+			C_BaseEntity *pParent = GetMoveParent();
+			const model_t *pParentModel = pParent ? pParent->GetModel() : NULL;
+			const char *pszParentModelName = pParentModel ? modelinfo->GetModelName( pParentModel ) : "<no parent model>";
+			ExecuteNTimes( 32, Warning( "SetupBones: invalid bone array size (%d - needs %d) ent %d class '%s' debug '%s' model '%s' modelIndex %d viewmodel %d parent %d class '%s' model '%s'\n",
+				nMaxBones, m_CachedBoneData.Count(), entindex(), GetClassname(), GetDebugName(), pszModelName, GetModelIndex(), IsViewModel() ? 1 : 0,
+				pParent ? pParent->entindex() : -1, pParent ? pParent->GetClassname() : "<no parent>", pszParentModelName ) );
 			return false;
 		}
 	}
@@ -3284,6 +3296,25 @@ bool C_BaseAnimating::ShouldDraw()
 	return !IsDynamicModelLoading() && BaseClass::ShouldDraw();
 }
 
+void C_BaseAnimating::UpdateVisibility()
+{
+	BaseClass::UpdateVisibility();
+
+	if ( ShouldDraw() )
+	{
+		if ( !m_bInitModelEffects )
+		{
+			InitModelEffects();
+		}
+	}
+	else if ( m_bHasAttachedParticles )
+	{
+		ParticleProp()->StopParticlesInvolving( this );
+		m_bHasAttachedParticles = false;
+		m_bInitModelEffects = false;
+	}
+}
+
 ConVar r_drawothermodels( "r_drawothermodels", "1", FCVAR_CHEAT, "0=Off, 1=Normal, 2=Wireframe" );
 
 //-----------------------------------------------------------------------------
@@ -3326,6 +3357,11 @@ int C_BaseAnimating::DrawModel( int flags )
 			g_pStudioStatsEntity != NULL && g_pStudioStatsEntity == GetClientRenderable() )
 		{
 			extraFlags |= STUDIO_GENERATE_STATS;
+		}
+
+		if ( flags & STUDIO_NO_OVERRIDE_FOR_ATTACH )
+		{
+			extraFlags |= STUDIO_NO_OVERRIDE_FOR_ATTACH;
 		}
 
 		// Necessary for lighting blending
@@ -3953,45 +3989,41 @@ void C_BaseAnimating::FireEvent( const Vector& origin, const QAngle& angles, int
 		{
 			int iAttachment = -1;
 			int iAttachType = PATTACH_ABSORIGIN_FOLLOW;
-			char token[256];
 			char szParticleEffect[256];
+			CSplitString splitString( options, " " );
 
-			// Get the particle effect name
-			const char *p = options;
-			p = nexttoken(token, p, ' ');
-			if ( token ) 
+			if ( splitString.Count() < 2 )
 			{
-				const char* mtoken = ModifyEventParticles( token );
-				if ( !mtoken || mtoken[0] == '\0' )
-					return;
-				Q_strncpy( szParticleEffect, mtoken, sizeof(szParticleEffect) );
+				Warning( "Invalid options specified for AE_CL_CREATE_PARTICLE_EFFECT event. Must specify \"<particle effect name> <attachment type> <attachment point>\"\n" );
+				return;
 			}
 
-			// Get the attachment type
-			p = nexttoken(token, p, ' ');
-			if ( token ) 
+			const char* mtoken = ModifyEventParticles( splitString[0] );
+			if ( !mtoken || mtoken[0] == '\0' )
+				return;
+			V_strncpy( szParticleEffect, mtoken, sizeof(szParticleEffect) );
+
+			const char *pszAttachType = splitString[1];
+			iAttachType = GetAttachTypeFromString( pszAttachType );
+			if ( iAttachType == -1 )
 			{
-				iAttachType = GetAttachTypeFromString( token );
-				if ( iAttachType == -1 )
-				{
-					Warning("Invalid attach type specified for particle effect anim event. Trying to spawn effect '%s' with attach type of '%s'\n", szParticleEffect, token );
-					return;
-				}
+				Warning( "Invalid attach type specified for AE_CL_CREATE_PARTICLE_EFFECT event. Trying to spawn effect '%s' with attach type of '%s'\n", szParticleEffect, pszAttachType );
+				return;
 			}
 
 			// Get the attachment point index
-			p = nexttoken(token, p, ' ');
-			if ( token )
+			if ( splitString.Count() > 2 )
 			{
-				iAttachment = atoi(token);
+				const char *pszAttachment = splitString[2];
+				iAttachment = atoi( pszAttachment );
 
 				// See if we can find any attachment points matching the name
-				if ( token[0] != '0' && iAttachment == 0 )
+				if ( pszAttachment[0] != '0' && iAttachment == 0 )
 				{
-					iAttachment = LookupAttachment( token );
+					iAttachment = LookupAttachment( pszAttachment );
 					if ( iAttachment <= 0 )
 					{
-						Warning( "Failed to find attachment point specified for particle effect anim event. Trying to spawn effect '%s' on attachment named '%s'\n", szParticleEffect, token );
+						Warning( "Failed to find attachment point specified for AE_CL_CREATE_PARTICLE_EFFECT event. Trying to spawn effect '%s' on attachment named '%s'\n", szParticleEffect, pszAttachment );
 						return;
 					}
 				}
@@ -3999,6 +4031,50 @@ void C_BaseAnimating::FireEvent( const Vector& origin, const QAngle& angles, int
 
 			// Spawn the particle effect
 			ParticleProp()->Create( szParticleEffect, (ParticleAttachment_t)iAttachType, iAttachment );
+		}
+		break;
+
+	case AE_CL_REMOVE_PARTICLE_EFFECT:
+		{
+			int iAttachment = -1;
+			char szParticleEffect[256];
+			CSplitString splitString( options, " " );
+			if ( splitString.Count() < 1 )
+			{
+				Warning( "Invalid options specified for AE_CL_REMOVE_PARTICLE_EFFECT event. Must specify \"<particle effect name> <attachment point>\"\n" );
+				return;
+			}
+
+			const char* mtoken = ModifyEventParticles( splitString[0] );
+			if ( !mtoken || mtoken[0] == '\0' )
+				return;
+			V_strncpy( szParticleEffect, mtoken, sizeof(szParticleEffect) );
+
+			if ( splitString.Count() > 1 )
+			{
+				const char *pszAttachment = splitString[1];
+				iAttachment = atoi( pszAttachment );
+
+				// See if we can find any attachment points matching the name
+				if ( pszAttachment[0] != '0' && iAttachment == 0 )
+				{
+					iAttachment = LookupAttachment( pszAttachment );
+					if ( iAttachment <= 0 )
+					{
+						Warning( "Failed to find attachment point specified for AE_CL_REMOVE_PARTICLE_EFFECT event. Trying to spawn effect '%s' on attachment named '%s'\n", szParticleEffect, pszAttachment );
+						return;
+					}
+				}
+			}
+			
+			if ( iAttachment != -1 )
+			{
+				ParticleProp()->StopParticlesWithNameAndAttachment( szParticleEffect, iAttachment );
+			}
+			else
+			{
+				ParticleProp()->StopParticlesNamed( szParticleEffect );
+			}
 		}
 		break;
 
@@ -4794,7 +4870,7 @@ void C_BaseAnimating::OnPreDataChanged( DataUpdateType_t updateType )
 	m_bLastClientSideFrameReset = m_bClientSideFrameReset;
 }
 
-void C_BaseAnimating::ForceSetupBonesAtTime( matrix3x4_t *pBonesOut, float flTime )
+bool C_BaseAnimating::ForceSetupBonesAtTime( matrix3x4_t *pBonesOut, float flTime )
 {
 	// blow the cached prev bones
 	InvalidateBoneCache();
@@ -4803,13 +4879,18 @@ void C_BaseAnimating::ForceSetupBonesAtTime( matrix3x4_t *pBonesOut, float flTim
 	Interpolate( flTime );
 
 	// Setup bone state at the given time
-	SetupBones( pBonesOut, MAXSTUDIOBONES, BONE_USED_BY_ANYTHING, flTime );
+	return SetupBones( pBonesOut, MAXSTUDIOBONES, BONE_USED_BY_ANYTHING, flTime );
 }
 
-void C_BaseAnimating::GetRagdollInitBoneArrays( matrix3x4_t *pDeltaBones0, matrix3x4_t *pDeltaBones1, matrix3x4_t *pCurrentBones, float boneDt )
+bool C_BaseAnimating::GetRagdollInitBoneArrays( matrix3x4_t *pDeltaBones0, matrix3x4_t *pDeltaBones1, matrix3x4_t *pCurrentBones, float boneDt )
 {
-	ForceSetupBonesAtTime( pDeltaBones0, gpGlobals->curtime - boneDt );
-	ForceSetupBonesAtTime( pDeltaBones1, gpGlobals->curtime );
+	bool bSuccess = true;
+
+	if ( !ForceSetupBonesAtTime( pDeltaBones0, gpGlobals->curtime - boneDt ) )
+		bSuccess = false;
+	if ( !ForceSetupBonesAtTime( pDeltaBones1, gpGlobals->curtime ) )
+		bSuccess = false;
+
 	float ragdollCreateTime = PhysGetSyncCreateTime();
 	if ( ragdollCreateTime != gpGlobals->curtime )
 	{
@@ -4817,12 +4898,15 @@ void C_BaseAnimating::GetRagdollInitBoneArrays( matrix3x4_t *pDeltaBones0, matri
 		// so initialize the ragdoll at that time so that it will reach the current
 		// position at curtime.  Otherwise the ragdoll will simulate forward from curtime
 		// and pop into the future a bit at this point of transition
-		ForceSetupBonesAtTime( pCurrentBones, ragdollCreateTime );
+		if ( !ForceSetupBonesAtTime( pCurrentBones, ragdollCreateTime ) )
+			bSuccess = false;
 	}
 	else
 	{
 		memcpy( pCurrentBones, m_CachedBoneData.Base(), sizeof( matrix3x4_t ) * m_CachedBoneData.Count() );
 	}
+
+	return bSuccess;
 }
 
 C_BaseAnimating *C_BaseAnimating::CreateRagdollCopy()

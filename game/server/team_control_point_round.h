@@ -52,6 +52,7 @@ public:
 	CHandle<CTeamControlPoint> GetPointOwnedBy( int iTeam );
 
 	bool RoundOwnedByTeam( int iTeam ){ return ( TeamOwnsAllPoints() == iTeam ); }
+	bool RoundOwnedByTeam( int iTeam ) const { return const_cast<CTeamControlPointRound *>( this )->RoundOwnedByTeam( iTeam ); }
 	int GetInvalidCapWinner() { return m_iInvalidCapWinner; }
 
 	CUtlVector< CHandle<CTeamControlPoint> > m_ControlPoints;

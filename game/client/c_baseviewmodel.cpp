@@ -18,6 +18,9 @@
 #include "tools/bonelist.h"
 #include <KeyValues.h>
 #include "hltvcamera.h"
+#ifdef TF_CLIENT_DLL
+#include "tf/c_tf_player.h"
+#endif
 
 #if defined( REPLAY_ENABLED )
 #include "replay/replaycamera.h"
@@ -87,6 +90,20 @@ void FormatViewModelAttachment( Vector &vOrigin, bool bInverse )
 	Vector vOut = (MainViewRight() * vTransformed.x) + (MainViewUp() * vTransformed.y) + (MainViewForward() * vTransformed.z);
 	vOrigin = pViewSetup->origin + vOut;
 }
+
+#ifdef TF_CLIENT_DLL
+bool TeamFortress_ShouldFlipClientViewModel( void )
+{
+	if ( IsLocalPlayerSpectator() )
+	{
+		C_TFPlayer *pSpecTarget = ToTFPlayer( UTIL_PlayerByIndex( GetSpectatorTarget() ) );
+		if ( pSpecTarget )
+			return pSpecTarget->m_bFlipViewModels;
+	}
+
+	return cl_flipviewmodels.GetBool();
+}
+#endif // TF_CLIENT_DLL
 
 
 void C_BaseViewModel::FormatViewModelAttachment( int nAttachment, matrix3x4_t &attachmentToWorld )
@@ -208,7 +225,7 @@ inline bool C_BaseViewModel::ShouldFlipViewModel()
 	CBaseCombatWeapon *pWeapon = m_hWeapon.Get();
 	if ( pWeapon )
 	{
-		return pWeapon->m_bFlipViewModel != cl_flipviewmodels.GetBool();
+		return pWeapon->m_bFlipViewModel != TeamFortress_ShouldFlipClientViewModel();
 	}
 #endif
 

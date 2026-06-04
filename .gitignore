@@ -37,3 +37,6 @@ waf3*/
 .vscode/
 .depproj/
 source-engine.sln
+.tf2local.json
+.tf2runtime.bat
+tmp_tf2_particles/

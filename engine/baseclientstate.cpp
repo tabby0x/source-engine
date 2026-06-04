@@ -571,7 +571,7 @@ bool CBaseClientState::PrepareSteamConnectResponse( uint64 unGSSteamID, bool bGS
 		return true;
 	}
 
-#if 0 //!defined( NO_STEAM ) && !defined( SWDS  ) 
+#if !defined( NO_STEAM ) && !defined( SWDS )
 	if ( !Steam3Client().SteamUser() )
 	{
 		COM_ExplainDisconnection( true, "#GameUI_ServerRequireSteam" );
@@ -586,7 +586,7 @@ bool CBaseClientState::PrepareSteamConnectResponse( uint64 unGSSteamID, bool bGS
 		checkAdr.SetIP( net_local_adr.GetIPHostByteOrder() );
 	}
 
-#if 0 // #ifndef SWDS
+#if !defined( NO_STEAM ) && !defined( SWDS )
 	// now append the steam3 cookie
 	char steam3Cookie[ STEAM_KEYSIZE ];
 	uint32 steam3CookieLen = 0;

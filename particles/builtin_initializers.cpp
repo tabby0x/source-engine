@@ -2415,8 +2415,305 @@ void C_INIT_CreateAlongPath::InitNewParticlesScalar(
 	}
 }
 
+static inline int TF2Particle_ClampControlPoint( int nControlPoint )
+{
+	return max( 0, min( MAX_PARTICLE_CONTROL_POINTS - 1, nControlPoint ) );
+}
+
+static inline void TF2Particle_ClampControlPointRange( int &nStartControlPoint, int &nEndControlPoint )
+{
+	nStartControlPoint = TF2Particle_ClampControlPoint( nStartControlPoint );
+	nEndControlPoint = TF2Particle_ClampControlPoint( nEndControlPoint );
+	if ( nEndControlPoint < nStartControlPoint )
+	{
+		nEndControlPoint = nStartControlPoint;
+	}
+}
+
+static inline uint64 TF2Particle_ControlPointRangeMask( int nStartControlPoint, int nEndControlPoint )
+{
+	TF2Particle_ClampControlPointRange( nStartControlPoint, nEndControlPoint );
+
+	uint64 nMask = 0;
+	for ( int i = nStartControlPoint; i <= nEndControlPoint; ++i )
+	{
+		nMask |= ( 1ULL << i );
+	}
+	return nMask;
+}
+
+static inline int TF2Particle_GetParticleID( CParticleCollection *pParticles, int nParticle )
+{
+	const int *pParticleID = pParticles->GetIntAttributePtr( PARTICLE_ATTRIBUTE_PARTICLE_ID, nParticle );
+	return pParticleID ? *pParticleID : nParticle;
+}
+
+static inline int TF2Particle_SelectTargetCP( CParticleCollection *pParticles, int nParticle, int nStartControlPoint, int nEndControlPoint )
+{
+	TF2Particle_ClampControlPointRange( nStartControlPoint, nEndControlPoint );
+
+	const int *pAssignedCP = pParticles->IsPerParticleAttributeInitialized( PARTICLE_ATTRIBUTE_HITBOX_INDEX )
+		? pParticles->GetIntAttributePtr( PARTICLE_ATTRIBUTE_HITBOX_INDEX, nParticle ) : NULL;
+	if ( pAssignedCP && *pAssignedCP >= nStartControlPoint && *pAssignedCP <= nEndControlPoint )
+	{
+		return *pAssignedCP;
+	}
+
+	int nTargetCP = pParticles->GetControlPointIndex();
+	if ( nTargetCP >= nStartControlPoint && nTargetCP <= nEndControlPoint )
+	{
+		return nTargetCP;
+	}
+
+	const int nRange = nEndControlPoint - nStartControlPoint + 1;
+	const int nParticleID = TF2Particle_GetParticleID( pParticles, nParticle );
+	return nStartControlPoint + ( abs( nParticleID ) % nRange );
+}
 
 
+//-----------------------------------------------------------------------------
+// Assign target control point
+// Modern TF2 flame particles use this as an initializer before Movement Follow CP.
+//-----------------------------------------------------------------------------
+class C_INIT_AssignTargetCP : public CParticleOperatorInstance
+{
+	DECLARE_PARTICLE_OPERATOR( C_INIT_AssignTargetCP );
+
+	int m_nStartControlPoint;
+	int m_nEndControlPoint;
+
+	uint32 GetWrittenAttributes( void ) const
+	{
+		return PARTICLE_ATTRIBUTE_HITBOX_INDEX_MASK;
+	}
+
+	uint32 GetReadAttributes( void ) const
+	{
+		return PARTICLE_ATTRIBUTE_PARTICLE_ID_MASK;
+	}
+
+	void InitParams( CParticleSystemDefinition *pDef, CDmxElement *pElement )
+	{
+		TF2Particle_ClampControlPointRange( m_nStartControlPoint, m_nEndControlPoint );
+	}
+
+	void InitNewParticlesScalar( CParticleCollection *pParticles, int start_p,
+								 int nParticleCount, int nAttributeWriteMask,
+								 void *pContext ) const;
+};
+
+DEFINE_PARTICLE_OPERATOR( C_INIT_AssignTargetCP, "Assign target CP", OPERATOR_GENERIC );
+
+BEGIN_PARTICLE_OPERATOR_UNPACK( C_INIT_AssignTargetCP )
+	DMXELEMENT_UNPACK_FIELD( "starting control point", "0", int, m_nStartControlPoint )
+	DMXELEMENT_UNPACK_FIELD( "maximum end control point", "30", int, m_nEndControlPoint )
+END_PARTICLE_OPERATOR_UNPACK( C_INIT_AssignTargetCP )
+
+void C_INIT_AssignTargetCP::InitNewParticlesScalar(
+	CParticleCollection *pParticles, int start_p,
+	int nParticleCount, int nAttributeWriteMask, void *pContext ) const
+{
+	for ( ; nParticleCount--; ++start_p )
+	{
+		int *pAssignedCP = pParticles->GetIntAttributePtrForWrite( PARTICLE_ATTRIBUTE_HITBOX_INDEX, start_p );
+		if ( pAssignedCP && ( nAttributeWriteMask & PARTICLE_ATTRIBUTE_HITBOX_INDEX_MASK ) )
+		{
+			int nTargetCP = pParticles->GetControlPointIndex();
+			if ( nTargetCP < m_nStartControlPoint || nTargetCP > m_nEndControlPoint )
+			{
+				const int nRange = m_nEndControlPoint - m_nStartControlPoint + 1;
+				const int nParticleID = TF2Particle_GetParticleID( pParticles, start_p );
+				nTargetCP = m_nStartControlPoint + ( abs( nParticleID ) % nRange );
+			}
+			*pAssignedCP = nTargetCP;
+		}
+	}
+}
+
+
+//-----------------------------------------------------------------------------
+// Lifetime from control point duration
+//-----------------------------------------------------------------------------
+class C_INIT_LifetimeFromControlPointLifeTime : public CParticleOperatorInstance
+{
+	DECLARE_PARTICLE_OPERATOR( C_INIT_LifetimeFromControlPointLifeTime );
+
+	int m_nStartControlPoint;
+	int m_nEndControlPoint;
+
+	uint32 GetWrittenAttributes( void ) const
+	{
+		return PARTICLE_ATTRIBUTE_LIFE_DURATION_MASK;
+	}
+
+	uint32 GetReadAttributes( void ) const
+	{
+		return PARTICLE_ATTRIBUTE_HITBOX_INDEX_MASK | PARTICLE_ATTRIBUTE_PARTICLE_ID_MASK;
+	}
+
+	virtual uint64 GetReadControlPointMask() const
+	{
+		return TF2Particle_ControlPointRangeMask( m_nStartControlPoint, m_nEndControlPoint );
+	}
+
+	void InitParams( CParticleSystemDefinition *pDef, CDmxElement *pElement )
+	{
+		TF2Particle_ClampControlPointRange( m_nStartControlPoint, m_nEndControlPoint );
+	}
+
+	void InitNewParticlesScalar( CParticleCollection *pParticles, int start_p,
+								 int nParticleCount, int nAttributeWriteMask,
+								 void *pContext ) const;
+};
+
+DEFINE_PARTICLE_OPERATOR( C_INIT_LifetimeFromControlPointLifeTime, "Lifetime From Control Point Life Time", OPERATOR_GENERIC );
+
+BEGIN_PARTICLE_OPERATOR_UNPACK( C_INIT_LifetimeFromControlPointLifeTime )
+	DMXELEMENT_UNPACK_FIELD( "starting control point", "0", int, m_nStartControlPoint )
+	DMXELEMENT_UNPACK_FIELD( "maximum end control point", "30", int, m_nEndControlPoint )
+END_PARTICLE_OPERATOR_UNPACK( C_INIT_LifetimeFromControlPointLifeTime )
+
+void C_INIT_LifetimeFromControlPointLifeTime::InitNewParticlesScalar(
+	CParticleCollection *pParticles, int start_p,
+	int nParticleCount, int nAttributeWriteMask, void *pContext ) const
+{
+	for ( ; nParticleCount--; ++start_p )
+	{
+		float *pLifeDuration = pParticles->GetFloatAttributePtrForWrite( PARTICLE_ATTRIBUTE_LIFE_DURATION, start_p );
+		if ( !pLifeDuration || !( nAttributeWriteMask & PARTICLE_ATTRIBUTE_LIFE_DURATION_MASK ) )
+		{
+			continue;
+		}
+
+		const int nTargetCP = TF2Particle_SelectTargetCP( pParticles, start_p, m_nStartControlPoint, m_nEndControlPoint );
+		const float flDuration = pParticles->m_ControlPoints[nTargetCP].m_flDuration;
+		if ( flDuration > 0.0f )
+		{
+			*pLifeDuration = flDuration;
+		}
+	}
+}
+
+
+//-----------------------------------------------------------------------------
+// Create particles inside a cylinder that follows a range of control points
+//-----------------------------------------------------------------------------
+class C_INIT_RandomPositionWithinCurvedCylinder : public CParticleOperatorInstance
+{
+	DECLARE_PARTICLE_OPERATOR( C_INIT_RandomPositionWithinCurvedCylinder );
+
+	int m_nStartControlPoint;
+	int m_nEndControlPoint;
+	float m_flCPVelocityScaleMin;
+	float m_flCPVelocityScaleMax;
+	float m_flPathVelocityScaleMin;
+	float m_flPathVelocityScaleMax;
+
+	uint32 GetWrittenAttributes( void ) const
+	{
+		return PARTICLE_ATTRIBUTE_XYZ_MASK | PARTICLE_ATTRIBUTE_PREV_XYZ_MASK;
+	}
+
+	uint32 GetReadAttributes( void ) const
+	{
+		return PARTICLE_ATTRIBUTE_CREATION_TIME_MASK | PARTICLE_ATTRIBUTE_HITBOX_INDEX_MASK | PARTICLE_ATTRIBUTE_PARTICLE_ID_MASK;
+	}
+
+	virtual uint64 GetReadControlPointMask() const
+	{
+		return TF2Particle_ControlPointRangeMask( max( 0, m_nStartControlPoint - 1 ), m_nEndControlPoint );
+	}
+
+	void InitParams( CParticleSystemDefinition *pDef, CDmxElement *pElement )
+	{
+		TF2Particle_ClampControlPointRange( m_nStartControlPoint, m_nEndControlPoint );
+	}
+
+	void InitNewParticlesScalar( CParticleCollection *pParticles, int start_p,
+								 int nParticleCount, int nAttributeWriteMask,
+								 void *pContext ) const;
+};
+
+DEFINE_PARTICLE_OPERATOR( C_INIT_RandomPositionWithinCurvedCylinder, "Random position within a curved cylinder", OPERATOR_PI_POSITION );
+
+BEGIN_PARTICLE_OPERATOR_UNPACK( C_INIT_RandomPositionWithinCurvedCylinder )
+	DMXELEMENT_UNPACK_FIELD( "starting control point for cylinder", "1", int, m_nStartControlPoint )
+	DMXELEMENT_UNPACK_FIELD( "maximum end control point for cylinder", "30", int, m_nEndControlPoint )
+	DMXELEMENT_UNPACK_FIELD( "min scale factor for mapping cp velocity to particle velocity", "0", float, m_flCPVelocityScaleMin )
+	DMXELEMENT_UNPACK_FIELD( "max scale factor for mapping cp velocity to particle velocity", "0", float, m_flCPVelocityScaleMax )
+	DMXELEMENT_UNPACK_FIELD( "min scale factor for particle velocity along path", "0", float, m_flPathVelocityScaleMin )
+	DMXELEMENT_UNPACK_FIELD( "max scale factor for particle velocity along path", "0", float, m_flPathVelocityScaleMax )
+END_PARTICLE_OPERATOR_UNPACK( C_INIT_RandomPositionWithinCurvedCylinder )
+
+void C_INIT_RandomPositionWithinCurvedCylinder::InitNewParticlesScalar(
+	CParticleCollection *pParticles, int start_p,
+	int nParticleCount, int nAttributeWriteMask, void *pContext ) const
+{
+	for ( ; nParticleCount--; ++start_p )
+	{
+		float *xyz = pParticles->GetFloatAttributePtrForWrite( PARTICLE_ATTRIBUTE_XYZ, start_p );
+		float *pxyz = pParticles->GetFloatAttributePtrForWrite( PARTICLE_ATTRIBUTE_PREV_XYZ, start_p );
+		const float *ct = pParticles->GetFloatAttributePtr( PARTICLE_ATTRIBUTE_CREATION_TIME, start_p );
+		if ( !xyz || !ct )
+		{
+			continue;
+		}
+
+		const int nEndCP = TF2Particle_SelectTargetCP( pParticles, start_p, m_nStartControlPoint, m_nEndControlPoint );
+		const int nStartCP = max( 0, nEndCP - 1 );
+
+		Vector vecStart, vecEnd;
+		pParticles->GetControlPointAtTime( nStartCP, *ct, &vecStart );
+		pParticles->GetControlPointAtTime( nEndCP, *ct, &vecEnd );
+
+		Vector vecPath = vecEnd - vecStart;
+		float flPathLength = VectorNormalize( vecPath );
+		if ( flPathLength <= 1.0e-3f )
+		{
+			vecPath = pParticles->m_ControlPoints[nEndCP].m_ForwardVector;
+			if ( VectorNormalize( vecPath ) <= 1.0e-3f )
+			{
+				vecPath.Init( 1.0f, 0.0f, 0.0f );
+			}
+		}
+
+		Vector vecRight = pParticles->m_ControlPoints[nEndCP].m_RightVector;
+		if ( VectorNormalize( vecRight ) <= 1.0e-3f || fabs( DotProduct( vecRight, vecPath ) ) > 0.95f )
+		{
+			CrossProduct( vecPath, Vector( 0.0f, 0.0f, 1.0f ), vecRight );
+			if ( VectorNormalize( vecRight ) <= 1.0e-3f )
+			{
+				CrossProduct( vecPath, Vector( 0.0f, 1.0f, 0.0f ), vecRight );
+				VectorNormalize( vecRight );
+			}
+		}
+
+		Vector vecUp;
+		CrossProduct( vecRight, vecPath, vecUp );
+		VectorNormalize( vecUp );
+
+		const float flT = pParticles->RandomFloat( 0.0f, 1.0f );
+		const float flAngle = pParticles->RandomFloat( 0.0f, 2.0f * M_PI_F );
+		const float flRadius = max( pParticles->m_ControlPoints[nStartCP].m_flRadius, pParticles->m_ControlPoints[nEndCP].m_flRadius );
+		const float flRadialDistance = sqrtf( pParticles->RandomFloat( 0.0f, 1.0f ) ) * max( flRadius, 0.0f );
+
+		Vector vecPosition;
+		VectorLerp( vecStart, vecEnd, flT, vecPosition );
+		vecPosition += vecRight * ( cosf( flAngle ) * flRadialDistance );
+		vecPosition += vecUp * ( sinf( flAngle ) * flRadialDistance );
+
+		SetVectorAttribute( xyz, vecPosition );
+
+		if ( pxyz && ( nAttributeWriteMask & PARTICLE_ATTRIBUTE_PREV_XYZ_MASK ) )
+		{
+			const float flCPVelocityScale = pParticles->RandomFloat( m_flCPVelocityScaleMin, m_flCPVelocityScaleMax );
+			const float flPathVelocityScale = pParticles->RandomFloat( m_flPathVelocityScaleMin, m_flPathVelocityScaleMax );
+			const float flPrevDt = ( pParticles->m_flPreviousDt > 0.0f ) ? pParticles->m_flPreviousDt : 0.015f;
+			Vector vecVelocity = ( pParticles->m_ControlPoints[nEndCP].m_vVelocity * flCPVelocityScale ) + ( vecPath * ( flPathLength * flPathVelocityScale ) );
+			SetVectorAttribute( pxyz, vecPosition - ( vecVelocity * flPrevDt ) );
+		}
+	}
+}
 
 
 class C_INIT_MoveBetweenPoints : public CParticleOperatorInstance
@@ -4728,6 +5025,9 @@ void AddBuiltInParticleInitializers( void )
 	REGISTER_PARTICLE_OPERATOR( FUNCTION_INITIALIZER, C_INIT_CreateInHierarchy );  
 	REGISTER_PARTICLE_OPERATOR( FUNCTION_INITIALIZER, C_INIT_RemapScalarToVector );
 	REGISTER_PARTICLE_OPERATOR( FUNCTION_INITIALIZER, C_INIT_CreateSequentialPath );
+	REGISTER_PARTICLE_OPERATOR( FUNCTION_INITIALIZER, C_INIT_AssignTargetCP );
+	REGISTER_PARTICLE_OPERATOR( FUNCTION_INITIALIZER, C_INIT_LifetimeFromControlPointLifeTime );
+	REGISTER_PARTICLE_OPERATOR( FUNCTION_INITIALIZER, C_INIT_RandomPositionWithinCurvedCylinder );
 	REGISTER_PARTICLE_OPERATOR( FUNCTION_INITIALIZER, C_INIT_InitialRepulsionVelocity );
 	REGISTER_PARTICLE_OPERATOR( FUNCTION_INITIALIZER, C_INIT_RandomYawFlip );
 	REGISTER_PARTICLE_OPERATOR( FUNCTION_INITIALIZER, C_INIT_RandomSecondSequence );

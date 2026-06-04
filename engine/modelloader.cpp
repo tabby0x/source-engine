@@ -764,6 +764,7 @@ CMapLoadHelper::CMapLoadHelper( int lumpToLoad )
 
 	m_nLumpID = lumpToLoad;
 	m_nLumpSize = 0;
+	m_nDiskLumpSize = 0;
 	m_nLumpOffset = -1;
 	m_pData = NULL;
 	m_pRawData = NULL;
@@ -774,6 +775,7 @@ CMapLoadHelper::CMapLoadHelper( int lumpToLoad )
 	Assert( lump );
 
 	m_nLumpSize = lump->filelen;
+	m_nDiskLumpSize = m_nLumpSize;
 	m_nLumpOffset = lump->fileofs;
 	m_nLumpVersion = lump->version;	
 
@@ -784,6 +786,7 @@ CMapLoadHelper::CMapLoadHelper( int lumpToLoad )
 	{
 		fileToUse = s_MapLumpFiles[lumpToLoad].file;
 		m_nLumpSize = s_MapLumpFiles[lumpToLoad].header.lumpLength;
+		m_nDiskLumpSize = m_nLumpSize;
 		m_nLumpOffset = s_MapLumpFiles[lumpToLoad].header.lumpOffset;
 		m_nLumpVersion = s_MapLumpFiles[lumpToLoad].header.lumpVersion;
 
@@ -920,6 +923,16 @@ byte *CMapLoadHelper::LumpBase( void )
 int CMapLoadHelper::LumpSize()
 {
 	return m_nLumpSize;
+}
+
+int CMapLoadHelper::DiskLumpSize() const
+{
+	return m_nDiskLumpSize;
+}
+
+bool CMapLoadHelper::IsCompressed() const
+{
+	return m_pUncompressedData != NULL;
 }
 
 int CMapLoadHelper::LumpOffset()

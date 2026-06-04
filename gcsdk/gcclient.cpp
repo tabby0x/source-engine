@@ -8,12 +8,155 @@
 #include "gcclient.h"
 #include "steam/isteamgamecoordinator.h"
 #include "gcsdk_gcmessages.pb.h"
+#include "tier0/icommandline.h"
+
+#include <stdlib.h>
 
 namespace GCSDK
 {
 
 //#define SOCDebug(...) Msg( __VA_ARGS__ )
 #define SOCDebug(...) ((void)0)
+
+static bool BReadOnlyInventoryModeEnabled()
+{
+	const char *pszEnv = getenv( "TF_READONLY_INVENTORY" );
+	if ( pszEnv && pszEnv[0] && pszEnv[0] != '0' )
+		return true;
+
+	return CommandLine() && CommandLine()->FindParm( "-tf_readonly_inventory" );
+}
+
+static bool BReadOnlyInventoryMessageBlocked( uint32 unMsgType )
+{
+	switch ( unMsgType )
+	{
+	case 1001:  // k_EMsgGCSetSingleItemPosition
+	case 1002:  // k_EMsgGCCraft
+	case 1004:  // k_EMsgGCDelete
+	case 1006:  // k_EMsgGCNameItem
+	case 1007:  // k_EMsgGCUnlockCrate
+	case 1009:  // k_EMsgGCPaintItem
+	case 1019:  // k_EMsgGCNameBaseItem
+	case 1023:  // k_EMsgGCCustomizeItemTexture
+	case 1025:  // k_EMsgGCUseItemRequest
+	case 1030:  // k_EMsgGCRemoveItemName
+	case 1032:  // k_EMsgGCGiftWrapItem
+	case 1034:  // k_EMsgGCDeliverGift
+	case 1037:  // k_EMsgGCUnwrapGiftRequest
+	case 1039:  // k_EMsgGCSetItemStyle
+	case 1041:  // k_EMsgGCSortItems
+	case 1059:  // k_EMsgGCAdjustItemEquippedState
+	case 1062:  // k_EMsgGCItemAcknowledged
+	case 1063:  // k_EMsgGCPresets_SelectPresetForClass
+	case 1070:  // k_EMsgGCApplyStrangePart
+	case 1077:  // k_EMsgGCApplyUpgradeCard
+	case 1079:  // k_EMsgGCApplyStrangeRestriction
+	case 1082:  // k_EMsgGCApplyXifier
+	case 1085:  // k_EMsgGCFulfillDynamicRecipeComponent
+	case 1087:  // k_EMsgGCSetItemEffectVerticalOffset
+	case 1088:  // k_EMsgGCSetHatEffectUseHeadOrigin
+	case 1089:  // k_EMsgGCItemEaterRecharger
+	case 1091:  // k_EMsgGCApplyBaseItemXifier
+	case 1092:  // k_EMsgGCApplyClassTransmogrifier
+	case 1093:  // k_EMsgGCApplyHalloweenSpellbookPage
+	case 1100:  // k_EMsgGCSetItemPositions
+	case 1501:  // k_EMsgGCTrading_InitiateTradeRequest
+	case 1502:  // k_EMsgGCTrading_InitiateTradeResponse
+	case 1510:  // k_EMsgGCTrading_CancelSession
+	case 1703:  // k_EMsgGCItemPreviewRequest
+	case 1705:  // k_EMsgGCItemPreviewExpire
+	case 2001:  // k_EMsgGCDev_NewItemRequest
+	case 2003:  // k_EMsgGCDev_DebugRollLootRequest
+	case 2523:  // k_EMsgGCApplyAutograph
+	case 2527:  // k_EMsgGCRequestPassportItemGrant
+	case 2531:  // k_EMsgGCItemPurgatory_FinalizePurchase
+	case 2533:  // k_EMsgGCItemPurgatory_RefundPurchase
+	case 2557:  // k_EMsgGCShuffleCrateContents
+	case 2558:  // k_EMsgGCQuestObjective_Progress
+	case 2560:  // k_EMsgGCApplyDuckToken
+	case 2562:  // k_EMsgGCQuestObjective_PointsChange
+	case 2564:  // k_EMsgGCQuestObjective_RequestLoanerItems
+	case 2566:  // k_EMsgGCApplyStrangeCountTransfer
+	case 2567:  // k_EMsgGCCraftCollectionUpgrade
+	case 2568:  // k_EMsgGCCraftHalloweenOffering
+	case 2569:  // k_EMsgGCQuestDiscard_Request
+	case 2574:  // k_EMsgGCCraftCommonStatClock
+	case 5001:  // k_EMsgGCReportWarKill
+	case 5018:  // k_EMsgGCVoteKickBanPlayer
+	case 5019:  // k_EMsgGCVoteKickBanPlayerResult
+	case 5022:  // k_EMsgGCFreeTrial_ChooseMostHelpfulFriend
+	case 5030:  // k_EMsgGCFreeTrial_ThankedSomeone
+	case 5200:  // k_EMsgGCCoaching_AddToCoaches
+	case 5202:  // k_EMsgGCCoaching_RemoveFromCoaches
+	case 5206:  // k_EMsgGCCoaching_AskCoach
+	case 5211:  // k_EMsgGCCoaching_LikeCurrentCoach
+	case 5212:  // k_EMsgGCCoaching_RemoveCurrentCoach
+	case 5500:  // k_EMsgGC_Duel_Request
+	case 5501:  // k_EMsgGC_Duel_Response
+	case 5502:  // k_EMsgGC_Duel_Results
+	case 5601:  // k_EMsgGC_Halloween_GrantItem_DEPRECATED
+	case 5608:  // k_EMsgGC_Halloween_GrantItem
+	case 5612:  // k_EMsgGC_Halloween_ServerBossEvent
+	case 5613:  // k_EMsgGC_Halloween_Merasmus2012
+	case 5614:  // k_EMsgGC_Halloween_UpdateMerasmusLootLevel
+	case 5710:  // k_EMsgGC_Client_UseServerModificationItem
+	case 5711:  // k_EMsgGC_Client_UseServerModificationItem_Response
+	case 5712:  // k_EMsgGC_GameServer_UseServerModificationItem
+	case 5713:  // k_EMsgGC_GameServer_UseServerModificationItem_Response
+	case 5714:  // k_EMsgGC_GameServer_ServerModificationItemExpired
+	case 6100:  // k_EMsgGC_IncrementKillCountAttribute_DEPRECATED
+	case 6235:  // k_EMsgGCAbandonCurrentGame
+	case 6270:  // k_EMsgGCReadyUp
+	case 6289:  // k_EMsgGCExitMatchmaking
+	case 6400:  // k_EMsgGC_UpdatePeriodicEvent
+	case 6401:  // k_EMsgGC_DuckLeaderboard_IndividualUpdate
+	case 6503:  // k_EMsgGC_ClientSetItemSlotAttribute
+	case 6505:  // k_EMsgGC_War_IndividualUpdate
+	case 6506:  // k_EMsgGC_War_JoinWar
+	case 6512:  // k_EMsgGC_Match_Result
+	case 6513:  // k_EMsgGCVoteKickPlayerRequest
+	case 6516:  // k_EMsgGC_DailyCompetitiveStatsRollup
+	case 6519:  // k_EMsgGC_ReportPlayer
+	case 6522:  // k_EMsgGCPlayerLeftMatch
+	case 6527:  // k_EMsgGC_AcknowledgeXP
+	case 6528:  // k_EMsgGCDataCenterPing_Update
+	case 6529:  // k_EMsgGC_NotificationAcknowledge
+	case 6535:  // k_EMsgGC_SurveyQuestionResponse
+	case 6537:  // k_EMsgGC_NewMatchForLobbyRequest
+	case 6539:  // k_EMsgGC_ChangeMatchPlayerTeamsRequest
+	case 6541:  // k_EMsgGC_QuestIdentify
+	case 6542:  // k_EMsgGC_QuestDevGive
+	case 6544:  // k_EMsgGCQuestComplete_Debug
+	case 6545:  // k_EMsgGC_QuestMapDebug
+	case 6547:  // k_EMsgGC_QuestMapUnlockNode
+	case 6549:  // k_EMsgGC_QuestMapPurchaseReward
+	case 6550:  // k_EMsgGC_SetDisablePartyQuestProgress
+	case 6553:  // k_EMsgGCQuestProgressReport
+	case 6554:  // k_EMsgGCParty_SetOptions
+	case 6556:  // k_EMsgGCParty_QueueForMatch
+	case 6558:  // k_EMsgGCParty_RemoveFromQueue
+	case 6560:  // k_EMsgGCParty_InvitePlayer
+	case 6561:  // k_EMsgGCParty_RequestJoinPlayer
+	case 6562:  // k_EMsgGCParty_SendChat
+	case 6564:  // k_EMsgGCQuestNodeTurnIn
+	case 6565:  // k_EMsgGCConsumePaintKit
+	case 6566:  // k_EMsgGC_Painkit_DevGrant
+	case 6567:  // k_EMsgGCParty_QueueForStandby
+	case 6569:  // k_EMsgGCParty_RemoveFromStandbyQueue
+	case 6571:  // k_EMsgGCParty_ClearPendingPlayer
+	case 6573:  // k_EMsgGCParty_ClearOtherPartyRequest
+	case 6575:  // k_EMsgGCParty_PromoteToLeader
+	case 6576:  // k_EMsgGCParty_KickMember
+	case 6577:  // k_EMsgGCQuestStrangeEvent
+	case 6578:  // k_EMsgGC_AcceptLobbyInvite
+	case 6581:  // k_EMsgGC_ProcessMatchVoteKick
+	case 10001: // k_EMsgGCDev_GrantWarKill
+		return true;
+	default:
+		return false;
+	}
+}
 
 //------------------------------------------------------------------------------
 // Purpose: Constructor
@@ -90,6 +233,13 @@ bool CGCClient::BMainLoop( uint64 ulLimitMicroseconds, uint64 ulFrameTimeMicrose
 //------------------------------------------------------------------------------
 bool CGCClient::BSendMessage( uint32 unMsgType, const uint8 *pubData, uint32 cubData )
 {
+	uint32 unMsgTypeWithoutProtoFlag = unMsgType & ~k_EMsgProtoBufFlag;
+	if ( BReadOnlyInventoryModeEnabled() && BReadOnlyInventoryMessageBlocked( unMsgTypeWithoutProtoFlag ) )
+	{
+		Warning( "TF read-only inventory mode blocked GC message %u\n", unMsgTypeWithoutProtoFlag );
+		return false;
+	}
+
 	if( m_pSteamGameCoordinator )
 		return m_pSteamGameCoordinator->SendMessage( unMsgType, pubData, cubData ) == k_EGCResultOK;
 	else
@@ -307,6 +457,69 @@ CGCClientSharedObjectCache *CGCClient::FindSOCache( const CSteamID & steamID, bo
 			return NULL;
 		}
 	}
+}
+
+//------------------------------------------------------------------------------
+// Purpose: Add a serialized local SO cache subscription.
+//------------------------------------------------------------------------------
+CGCClientSharedObjectCache *CGCClient::AddLocalSOCache( const CSteamID &ownerID, void *pubData, uint32 cubData )
+{
+	Assert( ownerID.IsValid() );
+	if ( !ownerID.IsValid() || !pubData || cubData == 0 )
+	{
+		Warning( "Local SO cache rejected invalid input for owner %s (%u bytes)\n", ownerID.Render(), cubData );
+		return NULL;
+	}
+
+	CMsgSOCacheSubscribed msg;
+	if ( !msg.ParseFromArray( pubData, cubData ) )
+	{
+		Warning( "Local SO cache protobuf parse failed for owner %s (%u bytes)\n", ownerID.Render(), cubData );
+		return NULL;
+	}
+
+	if ( msg.owner() == 0 )
+	{
+		msg.set_owner( ownerID.ConvertToUint64() );
+	}
+
+	CGCClientSharedObjectCache *pSOCache = FindSOCache( ownerID, true );
+	if ( !pSOCache )
+	{
+		Warning( "Local SO cache could not create cache for owner %s\n", ownerID.Render() );
+		return NULL;
+	}
+
+	if ( !pSOCache->BParseCacheSubscribedMsg( msg, true ) )
+	{
+		Warning( "Local SO cache failed after protobuf parse for owner %s (%d object types)\n", ownerID.Render(), msg.objects_size() );
+		return NULL;
+	}
+
+	Test_CacheSubscribed( pSOCache->GetOwner() );
+	return pSOCache;
+}
+
+//------------------------------------------------------------------------------
+// Purpose: Remove a locally-loaded SO cache subscription.
+//------------------------------------------------------------------------------
+void CGCClient::RemoveLocalSOCache( CGCClientSharedObjectCache *pSOCache )
+{
+	if ( !pSOCache )
+		return;
+
+	const CSteamID ownerID = pSOCache->GetOwner();
+	CUtlMap< CSteamID, CGCClientSharedObjectCache * >::IndexType_t nCache = m_mapSOCache.Find( ownerID );
+	if ( !m_mapSOCache.IsValidIndex( nCache ) || m_mapSOCache[nCache] != pSOCache )
+		return;
+
+	if ( pSOCache->BIsSubscribed() )
+	{
+		pSOCache->NotifyUnsubscribe();
+	}
+
+	delete pSOCache;
+	m_mapSOCache.RemoveAt( nCache );
 }
 
 //------------------------------------------------------------------------------

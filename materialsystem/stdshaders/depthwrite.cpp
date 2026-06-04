@@ -79,6 +79,7 @@ BEGIN_VS_SHADER_FLAGS( DepthWrite, "Help for Depth Write", SHADER_NOT_EDITABLE )
 				DECLARE_STATIC_VERTEX_SHADER( depthwrite_vs20 );
 				SET_STATIC_VERTEX_SHADER_COMBO( ONLY_PROJECT_POSITION, !bAlphaClip && IsX360() && !nColorDepth ); //360 needs to know if it *shouldn't* output texture coordinates to avoid shader patches
 				SET_STATIC_VERTEX_SHADER_COMBO( COLOR_DEPTH, nColorDepth );
+				SET_STATIC_VERTEX_SHADER_COMBO( TREESWAY, 0 );
 				SET_STATIC_VERTEX_SHADER( depthwrite_vs20 );
 				
 				if ( bAlphaClip || g_pHardwareConfig->PlatformRequiresNonNullPixelShaders() || nColorDepth )
@@ -111,6 +112,7 @@ BEGIN_VS_SHADER_FLAGS( DepthWrite, "Help for Depth Write", SHADER_NOT_EDITABLE )
 				DECLARE_STATIC_VERTEX_SHADER( depthwrite_vs30 );
 				SET_STATIC_VERTEX_SHADER_COMBO( ONLY_PROJECT_POSITION, 0 ); //360 only combo, and this is a PC path
 				SET_STATIC_VERTEX_SHADER_COMBO( COLOR_DEPTH, nColorDepth );
+				SET_STATIC_VERTEX_SHADER_COMBO( TREESWAY, 0 );
 				SET_STATIC_VERTEX_SHADER( depthwrite_vs30 );
 
 				pShaderShadow->EnableTexture( SHADER_SAMPLER0, true );

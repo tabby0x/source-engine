@@ -88,6 +88,7 @@ public:
 	bool IsTrainNearCheckpoint( void ) const;		// return true if the train is almost at the next checkpoint
 
 	float GetTrainDistanceAlongTrack( void ) const;
+	float GetTrainProgress( void ) { return m_flTotalProgress; }
 	Vector GetNextCheckpointPosition( void ) const;	// return world space location of next checkpoint along the path
 
 #if defined( STAGING_ONLY ) && defined( TF_DLL )

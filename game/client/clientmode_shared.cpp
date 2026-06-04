@@ -64,6 +64,7 @@ extern ConVar replay_rendersetting_renderglow;
 
 #if defined( TF_CLIENT_DLL )
 #include "c_tf_player.h"
+#include "c_tf_team.h"
 #include "econ_item_description.h"
 #endif
 
@@ -349,7 +350,7 @@ void ClientModeShared::Init()
  	Assert( m_pReplayReminderPanel );
 #endif
 
-	ListenForGameEvent( "player_connect" );
+	ListenForGameEvent( "player_connect_client" );
 	ListenForGameEvent( "player_disconnect" );
 	ListenForGameEvent( "player_team" );
 	ListenForGameEvent( "server_cvar" );
@@ -645,6 +646,28 @@ int	ClientModeShared::KeyInput( int down, ButtonCode_t keynum, const char *pszCu
 {
 	if ( engine->Con_IsVisible() )
 		return 1;
+
+	// Bare "say" and "say_team" binds should open the chat edit line, not send an empty chat command.
+	if ( pszCurrentBinding &&
+		( Q_strcmp( pszCurrentBinding, "messagemode" ) == 0 ||
+		  Q_strcmp( pszCurrentBinding, "say" ) == 0 ) )
+	{
+		if ( down )
+		{
+			StartMessageMode( MM_SAY );
+		}
+		return 0;
+	}
+	else if ( pszCurrentBinding &&
+				( Q_strcmp( pszCurrentBinding, "messagemode2" ) == 0 ||
+				  Q_strcmp( pszCurrentBinding, "say_team" ) == 0 ) )
+	{
+		if ( down )
+		{
+			StartMessageMode( MM_SAY_TEAM );
+		}
+		return 0;
+	}
 	
 	// If we're voting...
 #ifdef VOTING_ENABLED
@@ -945,7 +968,7 @@ void ClientModeShared::FireGameEvent( IGameEvent *event )
 
 	const char *eventname = event->GetName();
 
-	if ( Q_strcmp( "player_connect", eventname ) == 0 )
+	if ( Q_strcmp( "player_connect_client", eventname ) == 0 )
 	{
 		if ( !hudChat )
 			return;
@@ -1030,6 +1053,12 @@ void ClientModeShared::FireGameEvent( IGameEvent *event )
 			wchar_t wszPlayerName[MAX_PLAYER_NAME_LENGTH];
 			g_pVGuiLocalize->ConvertANSIToUnicode( pszName, wszPlayerName, sizeof(wszPlayerName) );
 
+			bool bUsingCustomTeamName = false;
+#ifdef TF_CLIENT_DLL
+			C_TFTeam *pTeam = GetGlobalTFTeam( team );
+			const wchar_t *wszTeam = pTeam ? pTeam->Get_Localized_Name() : L"";
+			bUsingCustomTeamName = pTeam ? pTeam->IsUsingCustomTeamName() : false;
+#else
 			wchar_t wszTeam[64];
 			C_Team *pTeam = GetGlobalTeam( team );
 			if ( pTeam )
@@ -1040,17 +1069,18 @@ void ClientModeShared::FireGameEvent( IGameEvent *event )
 			{
 				_snwprintf ( wszTeam, sizeof( wszTeam ) / sizeof( wchar_t ), L"%d", team );
 			}
+#endif
 
 			if ( !IsInCommentaryMode() )
 			{
 				wchar_t wszLocalized[100];
 				if ( bAutoTeamed )
 				{
-					g_pVGuiLocalize->ConstructString( wszLocalized, sizeof( wszLocalized ), g_pVGuiLocalize->Find( "#game_player_joined_autoteam" ), 2, wszPlayerName, wszTeam );
+					g_pVGuiLocalize->ConstructString( wszLocalized, sizeof( wszLocalized ), bUsingCustomTeamName ? g_pVGuiLocalize->Find( "#game_player_joined_autoteam_party_leader" ) : g_pVGuiLocalize->Find( "#game_player_joined_autoteam" ), 2, wszPlayerName, wszTeam );
 				}
 				else
 				{
-					g_pVGuiLocalize->ConstructString( wszLocalized, sizeof( wszLocalized ), g_pVGuiLocalize->Find( "#game_player_joined_team" ), 2, wszPlayerName, wszTeam );
+					g_pVGuiLocalize->ConstructString( wszLocalized, sizeof( wszLocalized ), bUsingCustomTeamName ? g_pVGuiLocalize->Find( "#game_player_joined_team_party_leader" ) : g_pVGuiLocalize->Find( "#game_player_joined_team" ), 2, wszPlayerName, wszTeam );
 				}
 
 				char szLocalized[100];

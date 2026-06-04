@@ -319,25 +319,43 @@ IDirect3DBaseTexture* CreateD3DTexture( int width, int height, int nDepth,
 		}
 #endif
 
+		// This conditional is here so that we don't complain when testing
+		// how much video memory we have. . this is kinda gross.
+		if ( hr == D3DERR_OUTOFVIDEOMEMORY && s_bTestingVideoMemorySize )
+			return 0;
+
+		const char *pszErrorName = "UNKNOWN";
 		switch ( hr )
 		{
 		case D3DERR_INVALIDCALL:
-			Warning( "ShaderAPIDX8::CreateD3DTexture: D3DERR_INVALIDCALL\n" );
+			pszErrorName = "D3DERR_INVALIDCALL";
 			break;
 		case D3DERR_OUTOFVIDEOMEMORY:
-			// This conditional is here so that we don't complain when testing
-			// how much video memory we have. . this is kinda gross.
-			if ( !s_bTestingVideoMemorySize )
-			{
-				Warning( "ShaderAPIDX8::CreateD3DTexture: D3DERR_OUTOFVIDEOMEMORY\n" );
-			}
+			pszErrorName = "D3DERR_OUTOFVIDEOMEMORY";
 			break;
 		case E_OUTOFMEMORY:
-			Warning( "ShaderAPIDX8::CreateD3DTexture: E_OUTOFMEMORY\n" );
+			pszErrorName = "E_OUTOFMEMORY";
+			break;
+		case D3DERR_DEVICELOST:
+			pszErrorName = "D3DERR_DEVICELOST";
+			break;
+		case D3DERR_DEVICENOTRESET:
+			pszErrorName = "D3DERR_DEVICENOTRESET";
+			break;
+		case D3DERR_NOTAVAILABLE:
+			pszErrorName = "D3DERR_NOTAVAILABLE";
+			break;
+		case D3DERR_DRIVERINTERNALERROR:
+			pszErrorName = "D3DERR_DRIVERINTERNALERROR";
 			break;
 		default:
 			break;
 		}
+
+		Warning( "ShaderAPIDX8::CreateD3DTexture: %s (0x%08x) name '%s' size %dx%d depth %d levels %d dstFormat %d d3dFormat 0x%08x usage 0x%08x pool %d flags 0x%x dynamic %d managed %d rendertarget %d cubemap %d volume %d\n",
+			pszErrorName, (unsigned int)hr, debugLabel ? debugLabel : "<unnamed>", width, height, nDepth, numLevels, dstFormat,
+			(unsigned int)d3dFormat, (unsigned int)usage, (int)pool, nCreationFlags, isDynamic ? 1 : 0, bManaged ? 1 : 0,
+			bIsRenderTarget ? 1 : 0, isCubeMap ? 1 : 0, bVolumeTexture ? 1 : 0 );
 		return 0;
 	}
 
@@ -454,7 +472,12 @@ bool LockTexture( ShaderAPITextureHandle_t bindId, int copy, IDirect3DBaseTextur
 	IDirect3DSurface* pSurf;
 	HRESULT hr = GetSurfaceFromTexture( pTexture, level, cubeFaceID, &pSurf );
 	if ( FAILED( hr ) )
+	{
+		ExecuteNTimes( 20, Warning( "GetSurfaceFromTexture failed: hr=0x%08x texture=%p type=%d level=%d face=%d rect=%d,%d %dx%d discard=%d\n",
+			(uint32)hr, pTexture, pTexture ? pTexture->GetType() : 0, level, cubeFaceID,
+			xOffset, yOffset, width, height, bDiscard ? 1 : 0 ) );
 		return false;
+	}
 
 	s_LockedSrcRect.left = xOffset;
 	s_LockedSrcRect.right = xOffset + width;
@@ -473,11 +496,33 @@ bool LockTexture( ShaderAPITextureHandle_t bindId, int copy, IDirect3DBaseTextur
 
 	tmZone( TELEMETRY_LEVEL0, TMZF_NONE, "D3DLockTexture" );
 
-	hr = pSurf->LockRect( &s_LockedRect, &s_LockedSrcRect, flags );
+	const RECT *pLockRect = bDiscard ? NULL : &s_LockedSrcRect;
+	switch ( pTexture->GetType() )
+	{
+	case D3DRTYPE_TEXTURE:
+		hr = ( (IDirect3DTexture *)pTexture )->LockRect( level, &s_LockedRect, pLockRect, flags );
+		break;
+
+	case D3DRTYPE_CUBETEXTURE:
+		hr = ( (IDirect3DCubeTexture *)pTexture )->LockRect( cubeFaceID, level, &s_LockedRect, pLockRect, flags );
+		break;
+
+	default:
+		hr = pSurf->LockRect( &s_LockedRect, pLockRect, flags );
+		break;
+	}
 	pSurf->Release();
 
 	if ( FAILED( hr ) )
+	{
+		D3DSURFACE_DESC desc;
+		memset( &desc, 0, sizeof( desc ) );
+		GetLevelDesc( pTexture, level, &desc );
+		ExecuteNTimes( 20, Warning( "D3DLockTexture failed: hr=0x%08x type=%d format=%d usage=0x%x pool=%d flags=0x%x discard=%d rect=%d,%d %dx%d\n",
+			(uint32)hr, pTexture ? pTexture->GetType() : 0, desc.Format, desc.Usage, desc.Pool, flags, bDiscard ? 1 : 0,
+			xOffset, yOffset, width, height ) );
 		return false;
+	}
 
 	writer.SetPixelMemory( GetImageFormat(pTexture), s_LockedRect.pBits, s_LockedRect.Pitch );
 
@@ -532,7 +577,20 @@ void UnlockTexture( ShaderAPITextureHandle_t bindId, int copy, IDirect3DBaseText
 	RECORD_INT( level );
 	RECORD_INT( cubeFaceID );
 
-	hr = pSurf->UnlockRect();
+	switch ( pTexture->GetType() )
+	{
+	case D3DRTYPE_TEXTURE:
+		hr = ( (IDirect3DTexture *)pTexture )->UnlockRect( level );
+		break;
+
+	case D3DRTYPE_CUBETEXTURE:
+		hr = ( (IDirect3DCubeTexture *)pTexture )->UnlockRect( cubeFaceID, level );
+		break;
+
+	default:
+		hr = pSurf->UnlockRect();
+		break;
+	}
 	pSurf->Release();
 #ifdef DBGFLAG_ASSERT
 	s_bInLock = false;

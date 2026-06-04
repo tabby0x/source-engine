@@ -108,6 +108,7 @@ public:
 	}
 
 	int GetTimerInHUD( void ) { return m_iTimerToShowInHUD; }
+	int GetStopWatchTimer( void ) { return m_iStopWatchTimer; }
 
 	// Mini-rounds data
 	void SetPlayingMiniRounds( bool bPlayingMiniRounds ){ m_bPlayingMiniRounds = bPlayingMiniRounds; }

@@ -1141,11 +1141,22 @@ void AnimationController::CancelAnimationsForPanel( Panel *pWithinParent )
 //-----------------------------------------------------------------------------
 // Purpose: Runs a custom command from code, not from a script file
 //-----------------------------------------------------------------------------
-void AnimationController::RunAnimationCommand(vgui::Panel *panel, const char *variable, float targetValue, float startDelaySeconds, float duration, Interpolators_e interpolator, float animParameter /* = 0 */ )
+void AnimationController::RunAnimationCommand(vgui::Panel *panel,
+											   const char *variable,
+											   float targetValue,
+											   float startDelaySeconds,
+											   float duration,
+											   Interpolators_e interpolator,
+											   float animParameter /* = 0 */,
+											   bool bClearValueQueue /* = true */,
+											   bool bCanBeCancelled /* = true */ )
 {
-	// clear any previous animations of this variable
 	UtlSymId_t var = g_ScriptSymbols.AddString(variable);
-	RemoveQueuedAnimationByType(panel, var, UTL_INVAL_SYMBOL);
+	if ( bClearValueQueue )
+	{
+		// clear any previous animations of this variable
+		RemoveQueuedAnimationByType(panel, var, UTL_INVAL_SYMBOL);
+	}
 
 	// build a new animation
 	AnimCmdAnimate_t animateCmd;
@@ -1159,17 +1170,29 @@ void AnimationController::RunAnimationCommand(vgui::Panel *panel, const char *va
 	animateCmd.duration = duration;
 
 	// start immediately
-	StartCmd_Animate(panel, 0, animateCmd, true);
+	StartCmd_Animate(panel, 0, animateCmd, bCanBeCancelled);
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Runs a custom command from code, not from a script file
 //-----------------------------------------------------------------------------
-void AnimationController::RunAnimationCommand(vgui::Panel *panel, const char *variable, Color targetValue, float startDelaySeconds, float duration, Interpolators_e interpolator, float animParameter /* = 0 */ )
+void AnimationController::RunAnimationCommand(vgui::Panel *panel,
+											   const char *variable,
+											   Color targetValue,
+											   float startDelaySeconds,
+											   float duration,
+											   Interpolators_e interpolator,
+											   float animParameter /* = 0 */,
+											   bool bClearValueQueue /* = true */,
+											   bool bCanBeCancelled /* = true */ )
 {
-	// clear any previous animations of this variable
 	UtlSymId_t var = g_ScriptSymbols.AddString(variable);
-	RemoveQueuedAnimationByType(panel, var, UTL_INVAL_SYMBOL);
+
+	if ( bClearValueQueue )
+	{
+		// clear any previous animations of this variable
+		RemoveQueuedAnimationByType(panel, var, UTL_INVAL_SYMBOL);
+	}
 
 	// build a new animation
 	AnimCmdAnimate_t animateCmd;
@@ -1186,7 +1209,7 @@ void AnimationController::RunAnimationCommand(vgui::Panel *panel, const char *va
 	animateCmd.duration = duration;
 
 	// start immediately
-	StartCmd_Animate(panel, 0, animateCmd, true);
+	StartCmd_Animate(panel, 0, animateCmd, bCanBeCancelled);
 }
 
 //-----------------------------------------------------------------------------

@@ -89,6 +89,7 @@ CBaseCombatWeapon::CBaseCombatWeapon() : BASECOMBATWEAPON_DERIVED_FROM()
 
 #if !defined( CLIENT_DLL )
 	m_pConstraint = NULL;
+	m_bSoundsEnabled = true;
 	OnBaseCombatWeaponCreated( this );
 #endif
 
@@ -1292,7 +1293,7 @@ float CBaseCombatWeapon::GetViewModelSequenceDuration()
 	return vm->SequenceDuration();
 }
 
-bool CBaseCombatWeapon::IsViewModelSequenceFinished( void )
+bool CBaseCombatWeapon::IsViewModelSequenceFinished( void ) const
 {
 	// These are not valid activities and always complete immediately
 	if ( GetActivity() == ACT_RESET || GetActivity() == ACT_INVALID )
@@ -1800,6 +1801,11 @@ void CBaseCombatWeapon::ItemPreFrame( void )
 #endif
 }
 
+bool CBaseCombatWeapon::CanPerformSecondaryAttack() const
+{
+	return m_flNextSecondaryAttack <= gpGlobals->curtime;
+}
+
 //====================================================================================
 // WEAPON BEHAVIOUR
 //====================================================================================
@@ -2015,6 +2021,11 @@ float CBaseCombatWeapon::GetFireRate( void )
 //-----------------------------------------------------------------------------
 void CBaseCombatWeapon::WeaponSound( WeaponSound_t sound_type, float soundtime /* = 0.0f */ )
 {
+#if !defined( CLIENT_DLL )
+	if ( !m_bSoundsEnabled )
+		return;
+#endif
+
 	// If we have some sounds from the weapon classname.txt file, play a random one of them
 	const char *shootsound = GetShootSound( sound_type );
 	if ( !shootsound || !shootsound[0] )
@@ -2578,18 +2589,19 @@ bool CBaseCombatWeapon::IsLocked( CBaseEntity *pAsker )
 //-----------------------------------------------------------------------------
 Activity CBaseCombatWeapon::ActivityOverride( Activity baseAct, bool *pRequired )
 {
-	acttable_t *pTable = ActivityList();
-	int actCount = ActivityListCount();
+	int actCount = 0;
+	acttable_t *pTable = ActivityList( actCount );
 
-	for ( int i = 0; i < actCount; i++, pTable++ )
+	for ( int i = 0; i < actCount; i++ )
 	{
-		if ( baseAct == pTable->baseAct )
+		const acttable_t &act = pTable[i];
+		if ( baseAct == act.baseAct )
 		{
 			if (pRequired)
 			{
-				*pRequired = pTable->required;
+				*pRequired = act.required;
 			}
-			return (Activity)pTable->weaponAct;
+			return (Activity)act.weaponAct;
 		}
 	}
 	return baseAct;

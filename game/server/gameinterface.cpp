@@ -103,7 +103,7 @@
 #include "steamworks_gamestats.h"
 #include "tf/tf_gc_server.h"
 #include "tf_gamerules.h"
-#include "tf_lobby.h"
+#include "tf_lobby_server.h"
 #include "player_vs_environment/tf_population_manager.h"
 #include "workshop/maps_workshop.h"
 
@@ -961,10 +961,14 @@ bool CServerGameDLL::IsRestoring()
 	return g_InRestore;
 }
 
+float g_flServerCurTime = 0.0f;
+
 // Called any time a new level is started (after GameInit() also on level transitions within a game)
 bool CServerGameDLL::LevelInit( const char *pMapName, char const *pMapEntities, char const *pOldLevel, char const *pLandmarkName, bool loadGame, bool background )
 {
 	VPROF("CServerGameDLL::LevelInit");
+
+	g_flServerCurTime = gpGlobals->curtime;
 
 #ifdef USES_ECON_ITEMS
 	GameItemSchema_t *pItemSchema = ItemSystem()->GetItemSchema();
@@ -1217,6 +1221,7 @@ void CServerGameDLL::GameFrame( bool simulating )
 		gpGlobals->frametime *= 2.0f;
 	}
 
+	g_flServerCurTime = gpGlobals->curtime;
 	float oldframetime = gpGlobals->frametime;
 
 #ifdef _DEBUG
@@ -2002,7 +2007,7 @@ const char *CServerGameDLL::GetServerBrowserGameData()
 	}
 	if ( TFGameRules() && TFGameRules()->IsMannVsMachineMode() )
 	{
-		bool bMannup = pMatch && pMatch->m_eMatchGroup == k_nMatchGroup_MvM_MannUp;
+		bool bMannup = pMatch && pMatch->m_eMatchGroup == k_eTFMatchGroup_MvM_MannUp;
 		sResult.Append( CFmtStr( ",mannup:%d", (int)bMannup ) );
 	}
 #endif

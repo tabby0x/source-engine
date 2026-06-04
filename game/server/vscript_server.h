@@ -17,6 +17,15 @@
 
 bool VScriptServerReplaceClosures( const char *pszScriptName, HSCRIPT hScope, bool bWarnMissing = false );
 
+#ifdef TF_DLL
+class INextBotComponentScriptInstanceHelper : public IScriptInstanceHelper
+{
+	bool ToString( void *p, char *pBuf, int bufSize );
+};
+
+extern INextBotComponentScriptInstanceHelper g_NextBotComponentScriptInstanceHelper;
+#endif
+
 // Only allow scripts to create entities during map initialization
 bool IsEntityCreationAllowedInScripts( void );
 

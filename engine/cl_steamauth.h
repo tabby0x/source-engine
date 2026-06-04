@@ -13,6 +13,7 @@
 #include "baseclient.h"
 #include "utlvector.h"
 #include "netadr.h"
+#include "protocol.h"
 
 #include "steam/steam_api.h"
 
@@ -50,7 +51,7 @@ private:
 	bool m_bGSSecure;
 	CSteamID m_steamIDGS;
 	uint32 m_nTicketSize;
-	unsigned char m_arbTicketData[ 1024 ];
+	unsigned char m_arbTicketData[ STEAM_KEYSIZE ];
 };
 
 #ifndef SWDS

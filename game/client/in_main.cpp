@@ -312,6 +312,8 @@ CInput::CInput( void )
 	m_pCommands = NULL;
 	m_pCameraThirdData = NULL;
 	m_pVerifiedCommands = NULL;
+	m_ePreferredGameActionSet = GAME_ACTION_SET_NONE;
+	m_eGameActionSetFlags = GAME_ACTION_SET_FLAGS_NONE;
 }
 
 //-----------------------------------------------------------------------------

@@ -172,6 +172,8 @@ public:
 	// Get raw memory pointer
 	byte				*LumpBase( void );
 	int					LumpSize( void );
+	int					DiskLumpSize( void ) const;
+	bool				IsCompressed( void ) const;
 	int					LumpOffset( void );
 	int					LumpVersion() const;
 	const char			*GetMapName( void );
@@ -197,6 +199,7 @@ public:
 
 private:
 	int					m_nLumpSize;
+	int					m_nDiskLumpSize;
 	int					m_nLumpOffset;
 	int					m_nLumpVersion;
 	byte				*m_pRawData;

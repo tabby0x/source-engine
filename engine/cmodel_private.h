@@ -13,6 +13,7 @@
 #include "bitvec.h"
 #include "bspfile.h"
 #include "utlbuffer.h"
+#include "tier1/lzmaDecoder.h"
 
 #include "filesystem.h"
 #include "filesystem_engine.h"
@@ -308,6 +309,7 @@ public:
 	{
 		m_nCount = 0;
 		m_nOffset = -1;
+		m_nCompressedCount = 0;
 		memset( m_pFilename, 0, sizeof( m_pFilename ) );
 	}
 
@@ -315,7 +317,7 @@ public:
 	{
 	}
 
-	void Init( char* pFilename, int nOffset, int nCount, void *pData = NULL )
+	void Init( char* pFilename, int nOffset, int nCount, void *pData = NULL, int nCompressedCount = 0 )
 	{
 		if ( m_buf.TellPut() )
 		{
@@ -325,6 +327,7 @@ public:
 		m_nCount = nCount;
 		V_strcpy_safe( m_pFilename, pFilename );
 		m_nOffset = nOffset;
+		m_nCompressedCount = nCompressedCount;
 
 		// can preload as required
 		if ( pData )
@@ -340,7 +343,31 @@ public:
 		{
 			MEM_ALLOC_CREDIT();
 
-			if ( !g_pFileSystem->ReadFile( m_pFilename, NULL, m_buf, sizeof(T) * m_nCount, m_nOffset ) )
+			if ( m_nCompressedCount > 0 )
+			{
+				CUtlBuffer compressedBuffer;
+				if ( !g_pFileSystem->ReadFile( m_pFilename, NULL, compressedBuffer, m_nCompressedCount, m_nOffset ) )
+				{
+					return NULL;
+				}
+
+				unsigned char *pCompressed = (unsigned char *)compressedBuffer.Base();
+				if ( !CLZMA::IsCompressed( pCompressed ) )
+				{
+					return NULL;
+				}
+
+				const int nUncompressedBytes = sizeof(T) * m_nCount;
+				m_buf.EnsureCapacity( nUncompressedBytes );
+				m_buf.SeekPut( CUtlBuffer::SEEK_HEAD, nUncompressedBytes );
+				const unsigned int nActualSize = CLZMA::Uncompress( pCompressed, (unsigned char *)m_buf.Base() );
+				if ( nActualSize != (unsigned int)nUncompressedBytes )
+				{
+					m_buf.Purge();
+					return NULL;
+				}
+			}
+			else if ( !g_pFileSystem->ReadFile( m_pFilename, NULL, m_buf, sizeof(T) * m_nCount, m_nOffset ) )
 			{
 				return NULL;
 			}
@@ -359,6 +386,7 @@ protected:
 	CUtlBuffer	m_buf;
 	char		m_pFilename[256];
 	int			m_nOffset;
+	int			m_nCompressedCount;
 };
 #include "tier0/memdbgoff.h"
 

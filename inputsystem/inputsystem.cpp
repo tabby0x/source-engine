@@ -1461,16 +1461,15 @@ LRESULT CInputSystem::WindowProc( HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 		{
 			if ( m_bRawInputSupported )
 			{
-				UINT dwSize = 40;
-				static BYTE lpb[40];
+				RAWINPUT raw;
+				memset( &raw, 0, sizeof( raw ) );
+				UINT dwSize = sizeof( raw );
+				const UINT nBytes = pfnGetRawInputData( (HRAWINPUT)lParam, RID_INPUT, &raw, &dwSize, sizeof( RAWINPUTHEADER ) );
 
-				pfnGetRawInputData((HRAWINPUT)lParam, RID_INPUT, lpb, &dwSize, sizeof(RAWINPUTHEADER));
-
-				RAWINPUT* raw = (RAWINPUT*)lpb;
-				if (raw->header.dwType == RIM_TYPEMOUSE) 
+				if ( nBytes != (UINT)-1 && nBytes >= sizeof( RAWINPUTHEADER ) && raw.header.dwType == RIM_TYPEMOUSE )
 				{
-					m_mouseRawAccumX += raw->data.mouse.lLastX;
-					m_mouseRawAccumY += raw->data.mouse.lLastY;
+					m_mouseRawAccumX += raw.data.mouse.lLastX;
+					m_mouseRawAccumY += raw.data.mouse.lLastY;
 				} 
 			}
 		}

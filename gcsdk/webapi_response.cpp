@@ -1394,13 +1394,34 @@ bool CWebAPIValues::BGetChildBinaryValue( CUtlBuffer &bufferOut, const char *pch
 	const CWebAPIValues *pChild = FindChild( pchChildName );
 	if( pChild )
 	{
-		pChild->GetBinaryValue( bufferOut );
-		return true;
+		if ( pChild->GetType() == k_EWebAPIValueType_BinaryBlob )
+		{
+			pChild->GetBinaryValue( bufferOut );
+			return bufferOut.TellPut() > 0;
+		}
+
+		if ( pChild->GetType() == k_EWebAPIValueType_String )
+		{
+			CUtlString sValue;
+			pChild->GetStringValue( sValue );
+			if ( sValue.IsEmpty() )
+				return false;
+
+			uint32 cubDecoded = ( ( sValue.Length() + 3 ) / 4 ) * 3;
+			bufferOut.Clear();
+			bufferOut.EnsureCapacity( cubDecoded );
+			if ( !Base64Decode( sValue.Get(), sValue.Length(), (uint8*)bufferOut.Base(), &cubDecoded, false ) || cubDecoded == 0 )
+			{
+				bufferOut.Clear();
+				return false;
+			}
+
+			bufferOut.SeekPut( CUtlBuffer::SEEK_HEAD, cubDecoded );
+			return true;
+		}
 	}
-	else
-	{
-		return false;
-	}
+
+	return false;
 }
 
 

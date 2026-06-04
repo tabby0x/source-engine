@@ -30,6 +30,7 @@ public:
 	DECLARE_CLASS( NextBotCombatCharacter, CBaseCombatCharacter );
 	DECLARE_SERVERCLASS();
 	DECLARE_DATADESC();
+	DECLARE_ENT_SCRIPTDESC();
 	
 	NextBotCombatCharacter( void );
 	virtual ~NextBotCombatCharacter() { }

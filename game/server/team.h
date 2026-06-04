@@ -67,6 +67,7 @@ public:
 	virtual void AddScore( int iScore );
 	virtual void SetScore( int iScore );
 	virtual int  GetScore( void );
+	virtual int  GetScore( void ) const { return m_iScore; }
 	virtual void ResetScores( void );
 
 	// Round scoring

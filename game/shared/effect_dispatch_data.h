@@ -12,6 +12,7 @@
 #endif
 
 #include "particle_parse.h"
+#include "particle_system_limits.h"
 
 #ifdef CLIENT_DLL
 
@@ -33,6 +34,7 @@
 #define EFFECTDATA_NO_RECORD 0x80000000
 
 #define MAX_EFFECT_FLAG_BITS 8
+#define MAX_EFFECTDATA_HITBOX_BITS MAX_PARTICLESYSTEMS_STRING_BITS
 
 #define CUSTOM_COLOR_CP1		9
 #define CUSTOM_COLOR_CP2		10

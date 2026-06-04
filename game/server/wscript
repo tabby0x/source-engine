@@ -8,6 +8,14 @@ import vpc_parser
 top = '.'
 PROJECT_NAME = 'server'
 
+tf_excluded_source_suffixes = [
+	'game/shared/mapbase/vscript_funcs_hl2.cpp'
+]
+
+def is_tf_excluded_source(path):
+	path = path.replace('\\', '/').lower()
+	return any(path.endswith(suffix) for suffix in tf_excluded_source_suffixes)
+
 games = {
 	'hl2': ['server_base.vpc', 'server_hl2.vpc'],
 	'episodic':['server_base.vpc', 'server_episodic.vpc'],
@@ -20,7 +28,6 @@ games = {
 	'tf': [
 		'server_base.vpc',
 		'server_econ_base.vpc',
-		'tf/tf_gcmessages_include.vpc',
 		'nav_mesh.vpc',
 		'server_tf.vpc'
 	]
@@ -34,6 +41,8 @@ def configure(conf):
 	conf.env.GAMES = game
 
 	conf.env.append_unique('DEFINES', ['DISABLE_STEAM=1'])
+	if game == 'tf':
+		conf.env.append_unique('DEFINES', ['SOURCESDK=1'])
 
 	if game not in games.keys():
 		conf.fatal("Couldn't find game: ", game)
@@ -54,6 +63,7 @@ def build(bld):
 	]
 
 	defines = []
+	linkflags = []
 
 	libs = ['tier0','particles','dmxloader','tier1','tier2','tier3','mathlib','vstdlib','choreoobjects','steam_api','vscript']
 	if bld.env.DEST_OS == 'win32':
@@ -64,8 +74,58 @@ def build(bld):
 		install_path += '/'+bld.env.GAMES+'/bin'
 
 	source = game["sources"] + ['../../public/tier0/memoverride.cpp']
+	if bld.env.GAMES == 'tf':
+		source = [s for s in source if not is_tf_excluded_source(s)]
 	includes += game["includes"]
 	defines = game["defines"]
+
+	if bld.env.GAMES == 'tf':
+		includes += [
+			'../..',
+			'../../gcsdk',
+			'../../gcsdk/steamextra',
+			'../../public/gcsdk',
+			'../../thirdparty/JSON_parser',
+			'generated_proto_tf',
+			'../../thirdparty/protobuf-2.6.1/src'
+		]
+		source += [
+			'../../common/steamid.cpp',
+			'../../gcsdk/gcclient.cpp',
+			'../../gcsdk/gcclient_sharedobjectcache.cpp',
+			'../../gcsdk/gcconstants.cpp',
+			'../../gcsdk/gclogger.cpp',
+			'../../gcsdk/gcmsg.cpp',
+			'../../gcsdk/job.cpp',
+			'../../gcsdk/jobmgr.cpp',
+			'../../gcsdk/jobtime.cpp',
+			'../../gcsdk/messagelist.cpp',
+			'../../gcsdk/msgprotobuf.cpp',
+			'../../gcsdk/netpacket.cpp',
+			'../../gcsdk/netpacketpool.cpp',
+			'../../gcsdk/protobufsharedobject.cpp',
+			'../../gcsdk/sharedobject.cpp',
+			'../../gcsdk/sharedobjectcache.cpp',
+			'../../gcsdk/steamextra/misc.cpp',
+			'../../gcsdk/steamextra/rtime.cpp',
+			'../../gcsdk/steamextra/tier1/hashglobals.cpp',
+			'../../gcsdk/steamextra/tier1/tsmempool.cpp',
+			'../../gcsdk/steamextra/tier1/tsmultimempool.cpp',
+			'../../gcsdk/webapi_response.cpp',
+			'../../gcsdk/workthreadpool.cpp',
+			'../../game/shared/tf/tf_gcmessages.cpp',
+			'../../thirdparty/JSON_parser/JSON_parser.c',
+			'generated_proto_tf/steammessages.pb.cc',
+			'generated_proto_tf/gcsystemmsgs.pb.cc',
+			'generated_proto_tf/gcsdk_gcmessages.pb.cc',
+			'generated_proto_tf/base_gcmessages.pb.cc',
+			'generated_proto_tf/econ_gcmessages.pb.cc',
+			'generated_proto_tf/tf_gcmessages.pb.cc',
+			'generated_proto_tf/tf_proto_def_messages.pb.cc'
+		]
+		if bld.env.DEST_OS == 'win32':
+			protobuf_lib_path = os.path.abspath(os.path.join(bld.path.abspath(), '../../thirdparty/protobuf-2.6.1/bin/win64/2015/staticcrt/release'))
+			linkflags += ['/LIBPATH:' + protobuf_lib_path, 'libprotobuf.lib']
 
 	defines.remove('PROTECTED_THINGS_ENABLE')
 
@@ -78,6 +138,7 @@ def build(bld):
 		defines  = defines,
 		install_path = install_path,
 		use      = libs,
+		linkflags = linkflags,
 		subsystem = bld.env.MSVC_SUBSYSTEM,
 		idx      = bld.get_taskgen_count()
 	)

@@ -873,9 +873,9 @@ Panel *EditablePanel::HasHotkey(wchar_t key)
 //-----------------------------------------------------------------------------
 // Purpose: Shortcut function to setting enabled state of control
 //-----------------------------------------------------------------------------
-void EditablePanel::SetControlEnabled(const char *controlName, bool enabled)
+void EditablePanel::SetControlEnabled(const char *controlName, bool enabled, bool bRecurseDown /*= false*/ )
 {
-	Panel *control = FindChildByName(controlName);
+	Panel *control = FindChildByName(controlName, bRecurseDown);
 	if (control)
 	{
 		control->SetEnabled(enabled);

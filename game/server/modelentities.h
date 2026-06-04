@@ -32,8 +32,8 @@ public:
 
 	virtual int DrawDebugTextOverlays( void );
 
-	void TurnOff( void );
-	void TurnOn( void );
+	virtual void TurnOff( void );
+	virtual void TurnOn( void );
 
 	// Input handlers
 	void InputTurnOff( inputdata_t &inputdata );

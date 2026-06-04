@@ -90,6 +90,9 @@ ConversionErrorType ImgUtl_SaveBitmapToBuffer( CUtlBuffer &fileData, const Bitma
 /// Load a PNG direct from memory buffer
 ConversionErrorType ImgUtl_LoadPNGBitmapFromBuffer( CUtlBuffer &fileData, Bitmap_t &bitmap );
 
+/// Get PNG dimensions direct from memory buffer
+ConversionErrorType ImgUtl_GetPNGSize( CUtlBuffer &fileData, uint32_t &uWidth, uint32_t &uHeight );
+
 /// Save a bitmap in PNG format to memory buffer
 ConversionErrorType ImgUtl_SavePNGBitmapToBuffer( CUtlBuffer &fileData, const Bitmap_t &bitmap );
 

@@ -582,6 +582,8 @@ public:
 #define SCOPE_MSG( msg )
 #endif
 
+// Note a variable is possibly unused to avoid analyzer warnings.
+template< typename T > static FORCEINLINE void NoteUnused( const T& foo ) { return; }
 
 //-----------------------------------------------------------------------------
 // This macro predates universal static_assert support in our toolchains

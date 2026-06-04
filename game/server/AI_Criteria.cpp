@@ -298,6 +298,15 @@ void AI_Response::GetResponse( char *buf, size_t buflen ) const
 {
 	GetName( buf, buflen );
 }
+
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+const char *AI_Response::GetResponsePtr() const
+{
+	return m_szResponseName;
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 // Input  : type - 

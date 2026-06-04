@@ -27,6 +27,8 @@
 #include <vgui/ILocalize.h>
 #include "view.h"
 #include "ixboxsystem.h"
+#include "tier2/tier2.h"
+#include "inputsystem/iinputsystem.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -908,7 +910,7 @@ const char * UTIL_SafeName( const char *oldName )
 //			input buffer is assumed, or you can pass the size of the input buffer if
 //			not NULL-terminated.
 //-----------------------------------------------------------------------------
-void UTIL_ReplaceKeyBindings( const wchar_t *inbuf, int inbufsizebytes, OUT_Z_BYTECAP(outbufsizebytes) wchar_t *outbuf, int outbufsizebytes )
+void UTIL_ReplaceKeyBindings( const wchar_t *inbuf, int inbufsizebytes, OUT_Z_BYTECAP(outbufsizebytes) wchar_t *outbuf, int outbufsizebytes, GameActionSet_t actionset )
 {
 	Assert( outbufsizebytes >= sizeof(outbuf[0]) );
 	// copy to a new buf if there are vars
@@ -944,6 +946,16 @@ void UTIL_ReplaceKeyBindings( const wchar_t *inbuf, int inbufsizebytes, OUT_Z_BY
 				char binding[64];
 				g_pVGuiLocalize->ConvertUnicodeToANSI( token, binding, sizeof(binding) );
 
+				const wchar_t *sc_origin = NULL;
+				if ( actionset != GAME_ACTION_SET_NONE && g_pInputSystem )
+				{
+					EControllerActionOrigin origin = g_pInputSystem->GetSteamControllerActionOrigin( *binding == '+' ? binding + 1 : binding, actionset );
+					if ( origin != k_EControllerActionOrigin_None )
+					{
+						sc_origin = g_pInputSystem->GetSteamControllerDescriptionForActionOrigin( origin );
+					}
+				}
+
 				const char *key = engine->Key_LookupBinding( *binding == '+' ? binding + 1 : binding );
 				if ( !key )
 				{
@@ -971,7 +983,7 @@ void UTIL_ReplaceKeyBindings( const wchar_t *inbuf, int inbufsizebytes, OUT_Z_BY
 				}
 				Q_strupr( friendlyName );
 
-				wchar_t *locName = g_pVGuiLocalize->Find( friendlyName );
+				const wchar_t *locName = sc_origin ? sc_origin : g_pVGuiLocalize->Find( friendlyName );
 				if ( !locName || wcslen(locName) <= 0)
 				{
 					g_pVGuiLocalize->ConvertANSIToUnicode( friendlyName, token, sizeof(token) );
@@ -1334,4 +1346,50 @@ bool UTIL_HasLoadedAnyMap()
 		return false;
 
 	return g_pFullFileSystem->FileExists( szFilename, "MOD" );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Performs a near-miss check of pEntity against the local player.
+//-----------------------------------------------------------------------------
+bool UTIL_BPerformNearMiss( const CBaseEntity *pEntity, const char *pszNearMissSound, float flNearMissDistanceThreshold )
+{
+	C_BasePlayer *pLocalPlayer = C_BasePlayer::GetLocalPlayer();
+	if ( !pLocalPlayer || !pLocalPlayer->IsAlive() )
+		return false;
+
+	if ( pLocalPlayer->GetTeamNumber() == pEntity->GetTeamNumber() )
+		return false;
+
+	Vector vecPlayerPos = pLocalPlayer->GetAbsOrigin();
+	Vector vecEntityPos = pEntity->GetAbsOrigin();
+	Vector forward;
+	AngleVectors( pEntity->GetAbsAngles(), &forward );
+	Vector vecEntityDest = vecEntityPos + forward * 200.0f;
+
+	float dist1 = vecEntityPos.DistToSqr( vecPlayerPos );
+	float dist2 = vecEntityDest.DistToSqr( vecPlayerPos );
+	if ( dist2 > dist1 )
+		return true;
+
+	Vector vecClosestPoint;
+	float dist;
+	CalcClosestPointOnLineSegment( vecPlayerPos, vecEntityPos, vecEntityDest, vecClosestPoint, &dist );
+	dist = vecPlayerPos.DistTo( vecClosestPoint );
+	if ( dist > flNearMissDistanceThreshold )
+		return false;
+
+	trace_t tr;
+	UTIL_TraceLine( vecEntityPos, vecEntityPos + forward * 400.0f, CONTENTS_HITBOX | CONTENTS_MONSTER | CONTENTS_SOLID, pEntity, COLLISION_GROUP_NONE, &tr );
+	if ( tr.DidHit() )
+		return true;
+
+	float soundlen = 0;
+	EmitSound_t params;
+	params.m_flSoundTime = 0;
+	params.m_pSoundName = pszNearMissSound;
+	params.m_pflSoundDuration = &soundlen;
+	CSingleUserRecipientFilter localFilter( pLocalPlayer );
+	CBaseEntity::EmitSound( localFilter, pLocalPlayer->entindex(), params );
+
+	return true;
 }

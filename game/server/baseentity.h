@@ -86,6 +86,7 @@ class CUserCmd;
 class CSkyCamera;
 class CEntityMapData;
 class INextBot;
+class IHasAttributes;
 
 
 typedef CUtlVector< CBaseEntity* > EntityList_t;
@@ -1025,6 +1026,9 @@ public:
 	bool			IsCombatCharacter() { return MyCombatCharacterPointer() == NULL ? false : true; }
 	bool			IsInWorld( void ) const;
 	virtual bool	IsCombatItem( void ) const { return false; }
+	virtual bool	IsProjectileCollisionTarget( void ) const { return false; }
+	virtual bool	IsFuncLOD( void ) const { return false; }
+	virtual bool	IsBaseProjectile( void ) const { return false; }
 
 	virtual bool	IsBaseCombatWeapon( void ) const { return false; }
 	virtual bool	IsWearable( void ) const { return false; }
@@ -1041,7 +1045,7 @@ public:
 	int				GetTeamNumber( void ) const;		// Get the Team number of the team this entity is on
 	virtual void	ChangeTeam( int iTeamNum );			// Assign this entity to a team.
 	bool			IsInTeam( CTeam *pTeam ) const;		// Returns true if this entity's in the specified team
-	bool			InSameTeam( CBaseEntity *pEntity ) const;	// Returns true if the specified entity is on the same team as this one
+	bool			InSameTeam( const CBaseEntity *pEntity ) const;	// Returns true if the specified entity is on the same team as this one
 	bool			IsInAnyTeam( void ) const;			// Returns true if this entity is in any team
 	const char		*TeamID( void ) const;				// Returns the name of the team this entity is on.
 
@@ -1162,6 +1166,8 @@ public:
 
 	int		GetHealth() const		{ return m_iHealth; }
 	void	SetHealth( int amt )	{ m_iHealth = amt; }
+	float	HealthFraction() const;
+	virtual float GetDefaultItemChargeMeterValue( void ) const { return 100.f; }
 
 	// Ugly code to lookup all functions to make sure they are in the table when set.
 #ifdef _DEBUG
@@ -1250,9 +1256,11 @@ public:
 	virtual void	ModifyOrAppendCriteria( AI_CriteriaSet& set );
 	void			AppendContextToCriteria( AI_CriteriaSet& set, const char *prefix = "" );
 	void			DumpResponseCriteria( void );
+	inline IHasAttributes *GetHasAttributesInterfacePtr() const { return m_pAttributes; }
 
 protected:
 	string_t		m_ModelName;
+	IHasAttributes *m_pAttributes;
 	
 private:
 	friend class CAI_Senses;
@@ -1878,6 +1886,7 @@ private:
 	//  randon number generators to spit out the same random numbers on both sides for a particular
 	//  usercmd input.
 	static int						m_nPredictionRandomSeed;
+	static int						m_nPredictionRandomSeedServer;
 	static CBasePlayer				*m_pPredictionPlayer;
 
 	// FIXME: Make hierarchy a member of CBaseEntity
@@ -1891,7 +1900,7 @@ private:
 	
 public:
 	// Accessors for above
-	static int						GetPredictionRandomSeed( void );
+	static int						GetPredictionRandomSeed( bool bUseUnSyncedServerPlatTime = false );
 	static void						SetPredictionRandomSeed( const CUserCmd *cmd );
 	static CBasePlayer				*GetPredictionPlayer( void );
 	static void						SetPredictionPlayer( CBasePlayer *player );
@@ -2073,11 +2082,18 @@ public:
 	static ScriptHook_t	g_Hook_ModifySentenceParams;
 #endif
 
+	virtual bool ShouldBlockNav() const { return true; }
+	virtual bool ShouldForceTransmitsForTeam( int iTeam ) { return false; }
+	void 			SetTruceValidForEnt( bool bTruceValidForEnt ) { m_bTruceValidForEnt = bTruceValidForEnt; }
+	virtual bool	IsTruceValidForEnt( void ) const { return m_bTruceValidForEnt; }
+	virtual bool BCanCallVote() { return true; }
+
 	string_t		m_iszVScripts;
 	string_t		m_iszScriptThinkFunction;
 	CScriptScope	m_ScriptScope;
 	HSCRIPT			m_hScriptInstance;
 	string_t		m_iszScriptId;
+	bool			m_bTruceValidForEnt;
 #ifdef MAPBASE_VSCRIPT
 	HSCRIPT			m_pScriptModelKeyValues;
 #else

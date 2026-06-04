@@ -185,6 +185,7 @@ public:
 
 	void		RotateYaw( float flDelta );
 	void		RotatePitch( float flDelta );
+	bool		BIsBeingManipulated() const { return m_bMousePressed; }
 
 	Vector		GetPlayerPos() const;
 	QAngle		GetPlayerAngles() const;

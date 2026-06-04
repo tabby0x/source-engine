@@ -365,8 +365,11 @@ void CParticleProperty::StopParticlesInvolving( CBaseEntity *pEntity )
 // Purpose: Stop all effects that were created using the given definition
 //			name.
 //-----------------------------------------------------------------------------
-void CParticleProperty::StopParticlesNamed( const char *pszEffectName, bool bForceRemoveInstantly /* =false */ )
+void CParticleProperty::StopParticlesNamed( const char *pszEffectName, bool bForceRemoveInstantly /* =false */, bool bInverse /*= false*/ )
 {
+	if ( !pszEffectName || !pszEffectName[0] )
+		return;
+
 	CParticleSystemDefinition *pDef = g_pParticleSystemMgr->FindParticleSystem( pszEffectName );
 	AssertMsg1(pDef, "Could not find particle definition %s", pszEffectName );
 	if (!pDef)
@@ -384,7 +387,8 @@ void CParticleProperty::StopParticlesNamed( const char *pszEffectName, bool bFor
 	{
 		// for each effect...
 		CNewParticleEffect *pParticleEffect = m_ParticleEffects[i].pParticleEffect.GetObject();
-		if (pParticleEffect->m_pDef() == pDef)
+		bool bMatches = pParticleEffect->m_pDef() == pDef;
+		if ( bMatches == !bInverse )
 		{
 			pParticleEffect->StopEmission( false, bRemoveInstantly );
 		}
@@ -616,7 +620,10 @@ void CParticleProperty::UpdateControlPoint( ParticleEffectList_t *pEffect, int i
 						if ( !pAnimating->C_BaseAnimating::GetAttachment( pPoint->iAttachmentPoint, attachmentToWorld ) )
 						{
 							Warning( "Cannot update control point %d for effect '%s'.\n", pPoint->iAttachmentPoint, pEffect->pParticleEffect->GetEffectName() );
-							attachmentToWorld = pAnimating->RenderableToWorldTransform();
+							// Keep orphaned attached effects from continuing at the owner's
+							// transform. That makes weapon/unusual effects appear stuck in place.
+							pEffect->pParticleEffect->StopEmission( false, false );
+							return;
 						}
 					}
 
@@ -625,10 +632,15 @@ void CParticleProperty::UpdateControlPoint( ParticleEffectList_t *pEffect, int i
 					MatrixVectors( vMat.As3x4(), &vecForward, &vecRight, &vecUp );
 					MatrixPosition( vMat.As3x4(), vecOrigin );
 
-					if ( pEffect->pParticleEffect->m_pDef->IsViewModelEffect() )
+					if ( pEffect->pParticleEffect->GetIsViewModelEffect() )
 					{
 						FormatViewModelAttachment( vecOrigin, true );
 					}
+				}
+				else
+				{
+					pEffect->pParticleEffect->StopEmission( false, false );
+					return;
 				}
 			}
 			break;

@@ -1220,6 +1220,7 @@ BEGIN_DATADESC( CFuncTrackTrain )
 	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetSpeedReal", InputSetSpeedReal ),
 	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetMaxSpeed", InputSetMaxSpeed ),
 	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetSpeedDirAccel", InputSetSpeedDirAccel ),
+	DEFINE_INPUTFUNC( FIELD_FLOAT, "SetSpeedForwardModifier", InputSetSpeedForwardModifier ),
 	DEFINE_INPUTFUNC( FIELD_STRING, "MoveToPathNode", InputMoveToPathNode ),
 	DEFINE_INPUTFUNC( FIELD_STRING, "TeleportToPathNode", InputTeleportToPathNode ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "LockOrientation", InputLockOrientation ),
@@ -1270,6 +1271,8 @@ CFuncTrackTrain::CFuncTrackTrain()
 	m_eVelocityType = TrainVelocity_Instantaneous;
 	m_lastBlockPos.Init();
 	m_lastBlockTick = gpGlobals->tickcount;
+	m_flSpeedForwardModifier = 1.0f;
+	m_flUnmodifiedDesiredSpeed = 0.0f;
 }
 
 
@@ -1524,11 +1527,39 @@ void CFuncTrackTrain::InputSetSpeedDir( inputdata_t &inputdata )
 //-----------------------------------------------------------------------------
 void CFuncTrackTrain::InputSetSpeedDirAccel( inputdata_t &inputdata )
 {
-	float newSpeed = inputdata.value.Float();
+	SetSpeedDirAccel( inputdata.value.Float() );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+void CFuncTrackTrain::SetSpeedDirAccel( float flNewSpeed )
+{
+	float newSpeed = flNewSpeed;
 	SetDirForward( newSpeed >= 0 );
 	newSpeed = fabs( newSpeed );
 	float flScale = clamp( newSpeed, 0.f, 1.f );
 	SetSpeed( m_maxSpeed * flScale, true );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+void CFuncTrackTrain::InputSetSpeedForwardModifier( inputdata_t &inputdata )
+{
+	SetSpeedForwardModifier( inputdata.value.Float() );
+}
+
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+void CFuncTrackTrain::SetSpeedForwardModifier( float flModifier )
+{
+	float flSpeedForwardModifier = flModifier;
+	flSpeedForwardModifier = fabs( flSpeedForwardModifier );
+
+	m_flSpeedForwardModifier = clamp( flSpeedForwardModifier, 0.f, 1.f );
+	SetSpeed( m_flUnmodifiedDesiredSpeed, true );
 }
 
 //-----------------------------------------------------------------------------
@@ -1657,7 +1688,13 @@ void CFuncTrackTrain::SetSpeed( float flSpeed, bool bAccel /*= false */  )
 {
 	m_bAccelToSpeed = bAccel;
 
+	m_flUnmodifiedDesiredSpeed = flSpeed;
 	float flOldSpeed = m_flSpeed;
+
+	if ( m_flSpeedForwardModifier < 1.0f && m_dir > 0 )
+	{
+		flSpeed *= m_flSpeedForwardModifier;
+	}
 
 	if ( m_bAccelToSpeed )
 	{

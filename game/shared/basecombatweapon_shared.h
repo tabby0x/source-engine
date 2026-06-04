@@ -242,13 +242,14 @@ public:
 	virtual bool			SendWeaponAnim( int iActivity );
 	virtual void			SendViewModelAnim( int nSequence );
 	float					GetViewModelSequenceDuration();	// Return how long the current view model sequence is.
-	bool					IsViewModelSequenceFinished( void ); // Returns if the viewmodel's current animation is finished
+	bool					IsViewModelSequenceFinished( void ) const; // Returns if the viewmodel's current animation is finished
 
 	virtual void			SetViewModel();
 
 	virtual bool			HasWeaponIdleTimeElapsed( void );
 	virtual void			SetWeaponIdleTime( float time );
 	virtual float			GetWeaponIdleTime( void );
+	virtual bool			ForceWeaponSwitch( void ) const { return false; }
 
 	// Weapon selection
 	virtual bool			HasAnyAmmo( void );							// Returns true is weapon has ammo
@@ -258,7 +259,8 @@ public:
 	bool					UsesSecondaryAmmo( void );					// returns true if the weapon actually uses secondary ammo
 	void					GiveDefaultAmmo( void );
 	
-	virtual bool			CanHolster( void ) { return TRUE; };		// returns true if the weapon can be holstered
+	virtual bool			CanHolster( void ) const { return TRUE; };		// returns true if the weapon can be holstered
+	virtual bool			CanHolster( void ) { return static_cast<const CBaseCombatWeapon *>( this )->CanHolster(); };
 	virtual bool			DefaultDeploy( char *szViewModel, char *szWeaponModel, int iActivity, char *szAnimExt );
 	virtual bool			CanDeploy( void ) { return true; }			// return true if the weapon's allowed to deploy
 	virtual bool			Deploy( void );								// returns true is deploy was successful
@@ -281,6 +283,7 @@ public:
 	virtual void			HandleFireOnEmpty();					// Called when they have the attack button down
 																	// but they are out of ammo. The default implementation
 																	// either reloads, switches weapons, or plays an empty sound.
+	virtual bool			CanPerformSecondaryAttack() const;
 
 	virtual bool			ShouldBlockPrimaryFire() { return false; }
 
@@ -299,7 +302,7 @@ public:
 	bool					DefaultReload( int iClipSize1, int iClipSize2, int iActivity );
 	bool					ReloadsSingly( void ) const;
 
-	virtual bool			AutoFiresFullClip( void ) { return false; }
+	virtual bool			AutoFiresFullClip( void ) const { return false; }
 	virtual bool			CanOverload( void ) { return false; }
 	virtual void			UpdateAutoFire( void );
 
@@ -341,7 +344,7 @@ public:
 
 	virtual void			SetActivity( Activity act, float duration );
 	inline void				SetActivity( Activity eActivity ) { m_Activity = eActivity; }
-	inline Activity			GetActivity( void ) { return m_Activity; }
+	inline Activity			GetActivity( void ) const { return m_Activity; }
 
 	virtual void			AddViewKick( void );	// Add in the view kick for the weapon
 
@@ -422,6 +425,7 @@ public:
 	virtual Activity		ActivityOverride( Activity baseAct, bool *pRequired );
 	virtual	acttable_t*		ActivityList( void ) { return NULL; }
 	virtual	int				ActivityListCount( void ) { return 0; }
+	virtual	acttable_t*		ActivityList( int &iActivityCount ) { iActivityCount = ActivityListCount(); return ActivityList(); }
 
 	virtual void			Activate( void );
 
@@ -521,6 +525,8 @@ public:
 
 	virtual CDmgAccumulator	*GetDmgAccumulator( void ) { return NULL; }
 
+	void					SetSoundsEnabled( bool bSoundsEnabled ) { m_bSoundsEnabled = bSoundsEnabled; }
+
 // Client only methods
 #else
 
@@ -598,6 +604,7 @@ public:
 
 	virtual void			HideThink( void );
 	virtual bool			CanReload( void );
+	virtual float			GetNextSecondaryAttackDelay( void ) { return 0.5f; } // This is for setting the next attack timer from inside SecondaryAttack()
 
 private:
 	typedef CHandle< CBaseCombatCharacter > CBaseCombatCharacterHandle;
@@ -639,6 +646,12 @@ public:
 
 	bool					SetIdealActivity( Activity ideal );
 	void					MaintainIdealActivity( void );
+
+#ifdef CLIENT_DLL
+	virtual const Vector&	GetViewmodelOffset() { return vec3_origin; }
+#endif // CLIENT_DLL
+
+	virtual bool			UsesCenterFireProjectile( void ) const { return false; }
 
 private:
 	Activity				m_Activity;
@@ -693,6 +706,8 @@ private:
 	
 	// Server only
 #if !defined( CLIENT_DLL )
+
+	bool					m_bSoundsEnabled;
 
 	// Outputs
 protected:
