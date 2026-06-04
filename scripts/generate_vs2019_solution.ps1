@@ -58,14 +58,14 @@ $includeFiles = Get-ChildItem -Path $sourceRoots -Recurse -File -Include *.h,*.h
 $projectDirMacro = '$(ProjectDir)'
 $configXml = foreach ($cfg in $configs) {
 @"
-  <ItemGroup Condition="'`$(Configuration)|`$(Platform)'=='$($cfg.Name)|x64'">
+  <PropertyGroup Condition="'`$(Configuration)|`$(Platform)'=='$($cfg.Name)|x64'">
     <NMakeBuildCommandLine>powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$($projectDirMacro)scripts\build_tf2.ps1" -Configuration $($cfg.BuildConfig) -Arch x64 -Jobs $Jobs</NMakeBuildCommandLine>
     <NMakeReBuildCommandLine>powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$($projectDirMacro)scripts\build_tf2.ps1" -Configuration $($cfg.BuildConfig) -Arch x64 -Jobs $Jobs</NMakeReBuildCommandLine>
     <NMakeCleanCommandLine>powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path '$($projectDirMacro)$($cfg.Out)') { Remove-Item -Recurse -Force '$($projectDirMacro)$($cfg.Out)' }"</NMakeCleanCommandLine>
     <NMakeOutput>$($projectDirMacro)$($cfg.Out)\hl2_launcher.exe</NMakeOutput>
     <NMakePreprocessorDefinitions>WIN32;_WIN32;TF_CLIENT_DLL;TF_DLL;CLIENT_DLL;GAME_DLL;SOURCE_ENGINE;%(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
     <NMakeIncludeSearchPath>$($projectDirMacro)public;$($projectDirMacro)game\shared;$($projectDirMacro)game\shared\tf;$($projectDirMacro)game\client;$($projectDirMacro)game\client\tf;$($projectDirMacro)game\server;$($projectDirMacro)game\server\tf;$($projectDirMacro)common;%(NMakeIncludeSearchPath)</NMakeIncludeSearchPath>
-  </ItemGroup>
+  </PropertyGroup>
 "@
 }
 
