@@ -22,6 +22,7 @@
 
 #include "server.h"
 #include "host_jmp.h"
+#include "devautomation.h"
 #include "screen.h"
 #include "keys.h"
 #include "cdll_int.h"
@@ -3068,6 +3069,9 @@ void _Host_RunFrame (float time)
 	double prevremainder;
 	bool shouldrender;
 
+	// Drain queued dev-automation commands onto the command buffer (main thread)
+	DevAutomation_Frame();
+
 #if defined( RAD_TELEMETRY_ENABLED )
 	if( g_Telemetry.DemoTickEnd == ( uint32 )-1 )
 	{
@@ -4091,6 +4095,8 @@ void Host_Init( bool bDedicated )
 {
 	realtime = 0;
 	host_idealtime = 0;
+
+	DevAutomation_Init();
 
 #if defined(_WIN32)
 	if ( CommandLine()->FindParm( "-pme" ) )

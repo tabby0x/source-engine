@@ -751,7 +751,12 @@ bool CSourceAppSystemGroup::Create()
 
 	// Load up the appropriate shader DLL
 	// This has to be done before connection.
-	char const* pDLLName = "shaderapidx9" DLL_EXT_STRING;
+	// -shaderapi <name> selects the backend (e.g. -shaderapi shaderapidx11
+	// during the DX11 migration); default stays shaderapidx9 until parity.
+	char szShaderApiDLL[MAX_PATH];
+	Q_snprintf( szShaderApiDLL, sizeof( szShaderApiDLL ), "%s" DLL_EXT_STRING,
+		CommandLine()->ParmValue( "-shaderapi", "shaderapidx9" ) );
+	char const* pDLLName = szShaderApiDLL;
 	if ( CommandLine()->FindParm( "-noshaderapi" ) )
 	{
 		pDLLName = "shaderapiempty" DLL_EXT_STRING;

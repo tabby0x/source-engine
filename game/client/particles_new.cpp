@@ -566,6 +566,10 @@ int CNewParticleEffect::DrawModel( int flags )
 			}
 		}
 
+		// Named per particle system so RenderDoc captures group each effect's
+		// draws under its .pcf system name
+		PIXEVENT( pRenderContext, GetEffectName() );
+
 		pRenderContext->MatrixMode( MATERIAL_MODEL );
 		pRenderContext->PushMatrix();
 		pRenderContext->LoadIdentity();

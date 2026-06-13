@@ -116,7 +116,7 @@ private:
 private:
 	CFileChangeWatcher m_Watcher;
 	CTextureSystem *m_pTextureSystem;
-	int m_Context;	
+	intp m_Context;	
 };
 
 
@@ -181,7 +181,7 @@ public:
 	void InformPaletteChanged(void);
 
 	// IMaterialEnumerator interface, Used to add all the world materials into the material list.
-	bool EnumMaterial( const char *pMaterialName, int nContext );
+	bool EnumMaterial( const char *pMaterialName, intp nContext );
 
 	// Used to lazily load in all the textures during app idle.
 	void LazyLoadTextures();

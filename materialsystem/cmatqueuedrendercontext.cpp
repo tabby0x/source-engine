@@ -129,6 +129,7 @@ public:
 		m_VertexFormat( 0 ),
 		m_MorphFormat( 0 )
 	{
+		m_szLastMaterial[0] = 0;
 	}
 
 	CLateBoundPtr<IMesh> &AccessLateBoundMesh()
@@ -146,6 +147,14 @@ public:
 	{
 		if ( !( flags & MQM_FLEX ))
 		{
+			// vertexFormat is the QUEUE-TIME format (m_VertexFormat as computed
+			// in OnGetDynamicMesh) — the deferred build buffers were sized with
+			// it. Asking the material for its format HERE instead is a race:
+			// it can change between queue and replay (e.g. pyrovision
+			// replacements re-resolve the shader; vertexlit w/ normal = 48 B
+			// queued vs pyro world w/o normal = 32 B at replay), and
+			// ExecuteDefferredBuild then overruns the real mesh's lock window
+			// (crashed exactly at the end of the dx11 dynamic ring).
 			if ( vertexFormat == 0 )
 			{
 				m_pActualMesh = m_pHardwareContext->GetDynamicMesh( ( ( flags & MQM_BUFFERED ) != 0 ), pVertexOverride, pIndexOverride, pMaterial );
@@ -172,10 +181,18 @@ public:
 			}
 			else
 			{
-				Error( "Getting a dynamic mesh without resolving the previous one" );
+				// Name the leaker: the previous lock that was never drawn/freed
+				Error( "Getting a dynamic mesh without resolving the previous one\n"
+					"(previous: mat %s, %d verts %s, %d indices %s, fmt 0x%llx; next mat %s)",
+					m_szLastMaterial, m_nVerts, m_pVertexData ? "leaked" : "-",
+					m_nIndices, m_pIndexData ? "leaked" : "-",
+					(unsigned long long)m_VertexFormat,
+					pMaterial ? pMaterial->GetName() : "?" );
 			}
 		}
 		FreeBuffers();
+		V_strncpy( m_szLastMaterial, pMaterial ? pMaterial->GetName() : ( ( flags & MQM_FLEX ) ? "<flex>" : "?" ),
+			sizeof( m_szLastMaterial ) );
 
 		m_pVertexOverride = pVertexOverride;
 		m_pIndexOverride = pIndexOverride;
@@ -222,8 +239,17 @@ public:
 		g_pShaderAPI->ComputeVertexDescription( 0, m_VertexFormat, temp );
 		m_VertexSize = temp.m_ActualVertexSize;
 
-		// queue up get of real dynamic mesh, allocate space for verts & indices
-		m_pCallQueue->QueueCall( this, &CMatQueuedMesh::DeferredGetDynamicMesh, vertexFormat, flags, pVertexOverride, pIndexOverride, pMaterial );
+		// Queue up get of real dynamic mesh, allocate space for verts &
+		// indices. For the plain dynamic path (the only one that copies queued
+		// vertex bytes), pass the format WE computed and sized the build with —
+		// the replay side must lock with the same vertex size or
+		// ExecuteDefferredBuild's copy overruns the lock window when the
+		// material's format changes between queue and replay. Overrides and
+		// flex keep the caller's value (no queued vertex copy there).
+		VertexFormat_t queuedFormat = ( ( flags & MQM_FLEX ) || pVertexOverride || pIndexOverride )
+			? vertexFormat : m_VertexFormat;
+		m_pCallQueue->QueueCall( this, &CMatQueuedMesh::DeferredGetDynamicMesh,
+			queuedFormat, flags, pVertexOverride, pIndexOverride, pMaterial );
 		return true;
 	}
 
@@ -442,6 +468,22 @@ public:
 			Assert( pDest );
 			if ( pDest )
 			{
+				// Belt to the queued-format fix: never copy more than the lock
+				// window actually holds. A queue/replay vertex-size mismatch
+				// here previously wrote off the end of the dx11 dynamic ring
+				// (AV at exactly ring base + ring size).
+				int nMaxBytes = nVerts * desc.m_ActualVertexSize;
+				if ( nBytesVerts > nMaxBytes )
+				{
+					static bool s_bWarnedDeferredOverrun;
+					if ( !s_bWarnedDeferredOverrun )
+					{
+						s_bWarnedDeferredOverrun = true;
+						Warning( "CMatQueuedMesh: deferred build size mismatch (queued %d bytes, lock window %d bytes, %d verts) - copy clamped\n",
+							nBytesVerts, nMaxBytes, nVerts );
+					}
+					nBytesVerts = nMaxBytes;
+				}
 				FastCopy( (byte *)pDest, pVertexData, nBytesVerts );
 			}
 		}
@@ -685,6 +727,9 @@ private:
 
 	IMesh *m_pVertexOverride;
 	IMesh *m_pIndexOverride;
+
+	// Diagnostic: who locked last (see the unresolved-mesh Error)
+	char m_szLastMaterial[64];
 
 	static unsigned short gm_ScratchIndexBuffer[6];
 };

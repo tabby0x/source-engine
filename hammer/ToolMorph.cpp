@@ -102,7 +102,7 @@ void Morph3D::OnActivate()
 			{
 				SelectObject((CMapSolid *)pobj, scSelect);
 			}
-			pobj->EnumChildren((ENUMMAPCHILDRENPROC)AddToMorph, (DWORD)this, MAPCLASS_TYPE(CMapSolid));
+			pobj->EnumChildren((ENUMMAPCHILDRENPROC)AddToMorph, (DWORD_PTR)this, MAPCLASS_TYPE(CMapSolid));
 		}
 
 		m_pDocument->SelectObject(NULL, scClear|scSaveChanges );

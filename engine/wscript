@@ -131,6 +131,7 @@ def build(bld):
 		'hltvdemo.cpp', 
 		'hltvserver.cpp',
 		'hltvtest.cpp',
+		'devautomation.cpp',
 		'host.cpp',
 		'host_cmd.cpp',
 		'host_listmaps.cpp',

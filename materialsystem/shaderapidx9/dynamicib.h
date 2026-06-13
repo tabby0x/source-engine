@@ -399,17 +399,13 @@ void CIndexBuffer::Create( IDirect3DDevice9 *pD3D )
 	RECORD_INT( m_bDynamic );
 
 #if !defined( _X360 )
-	HRESULT hr = pD3D->CreateIndexBuffer( 
+	HRESULT hr = pD3D->CreateIndexBuffer(
 		m_IndexCount * IndexSize(),
 		desc.Usage,
 		desc.Format,
-		desc.Pool, 
-		&m_pIB, 
+		desc.Pool,
+		&m_pIB,
 		NULL );
-	if ( hr != D3D_OK )
-	{
-		Warning( "CreateIndexBuffer failed!\n" );
-	}
 
 	if ( ( hr == D3DERR_OUTOFVIDEOMEMORY ) || ( hr == E_OUTOFMEMORY ) )
 	{
@@ -419,6 +415,13 @@ void CIndexBuffer::Create( IDirect3DDevice9 *pD3D )
 		pD3D->EvictManagedResources();
 		hr = pD3D->CreateIndexBuffer( m_IndexCount * IndexSize(),
 			desc.Usage, desc.Format, desc.Pool, &m_pIB, NULL );
+	}
+
+	if ( FAILED( hr ) || !m_pIB )
+	{
+		Warning( "CIndexBuffer::Create: CreateIndexBuffer FAILED hr=0x%08x size=%d usage=0x%x pool=%d dynamic=%d coop=0x%08x\n",
+			(unsigned int)hr, m_IndexCount * IndexSize(), (unsigned int)desc.Usage, (int)desc.Pool, m_bDynamic ? 1 : 0,
+			(unsigned int)pD3D->TestCooperativeLevel() );
 	}
 
 	Assert( m_pIB );

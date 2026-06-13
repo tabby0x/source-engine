@@ -1524,6 +1524,7 @@ static void Generate8BitBloomTexture( IMatRenderContext *pRenderContext, float f
 										int x, int y, int w, int h )
 {
 	tmZone( TELEMETRY_LEVEL0, TMZF_NONE, "%s", __FUNCTION__ );
+	PIXEVENT( pRenderContext, "Bloom (LDR downsample/blur)" );
 
 	pRenderContext->PushRenderTargetAndViewport();
 	ITexture *pSrc = materials->FindTexture( "_rt_FullFrameFB", TEXTURE_GROUP_RENDER_TARGET );
@@ -2397,6 +2398,7 @@ void DoEnginePostProcessing( int x, int y, int w, int h, bool bFlashlightIsOn, b
 				static bool bFirstFrame = !IsX360();
 				if( !bFirstFrame || !bPerformColCorrect )
 				{
+					PIXEVENT( pRenderContext, "PostProcess combine (bloom add / color correction)" );
 					bool bFBUpdated = false;
 
 					if ( mat_postprocessing_combine.GetInt() )

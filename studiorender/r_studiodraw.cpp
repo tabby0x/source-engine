@@ -2786,10 +2786,10 @@ int CStudioRender::R_StudioDrawMesh( IMatRenderContext *pRenderContext, mstudiom
 		// Take the static path for new flexed models on DX9 hardware
 		bool bFlexStatic = ( bIsDeltaFlexed && g_pMaterialSystemHardwareConfig->SupportsStreamOffset() );
 
-		// Use the hardware if the mesh is hw skinned and we can put flexes on another stream 
+		// Use the hardware if the mesh is hw skinned and we can put flexes on another stream
 		// Otherwise, we gotta do some expensive locks
 		bool bIsHardwareSkinnedData = ( pGroup->m_Flags & MESHGROUP_IS_HWSKINNED ) != 0;
-		bool bShouldHardwareSkin = bIsHardwareSkinnedData && ( !bIsFlexed || bFlexStatic ) && 
+		bool bShouldHardwareSkin = bIsHardwareSkinnedData && ( !bIsFlexed || bFlexStatic ) &&
 			( lighting != LIGHTING_SOFTWARE );
 
 		if ( bShouldHardwareSkin && !m_pRC->m_Config.bDrawNormals && !m_pRC->m_Config.bDrawTangentFrame && !m_pRC->m_Config.bWireframe )

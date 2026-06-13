@@ -129,6 +129,19 @@ if (Test-Path $retailSteamInf) {
     Copy-Item -Path $retailSteamInf -Destination (Join-Path $gameDir "steam.inf") -Force
 }
 
+# cfg/mtp.cfg is the pyrovision map whitelist (Meet the Pyro). Retail ships it
+# as a LOOSE file in tf/cfg (not in any VPK), and CTFGameRules loads it with
+# pathID "MOD" (tf_gamerules.cpp SetUpVisionFilterKeyValues) - our MOD path is
+# this build dir, so without the copy the whitelist is empty and
+# AllowMapVisionFilterShaders() is always false: localplayer_visionflags stays
+# 0 and the CReplacementProxy world/prop/skybox pyroland swaps never fire.
+$retailMtpCfg = Join-Path $tfDir "cfg\mtp.cfg"
+if (Test-Path $retailMtpCfg) {
+    $gameCfgDir = Join-Path $gameDir "cfg"
+    New-Item -ItemType Directory -Path $gameCfgDir -Force | Out-Null
+    Copy-Item -Path $retailMtpCfg -Destination (Join-Path $gameCfgDir "mtp.cfg") -Force
+}
+
 $runtimeEnv = Join-Path $repoRoot ".tf2runtime.bat"
 $envLines = @(
     "@echo off",
@@ -141,6 +154,27 @@ $envLines = @(
     "set ""TF2_STEAM_API=$steamApi64"""
 )
 Set-Content -Path $runtimeEnv -Value $envLines -Encoding ASCII
+
+# Keep the REAL Steam API resident at bin\steam_api.dll (user direction
+# 2026-06-10): the waf install step drops the built stub there on every
+# build, and the old per-launch swap dance proved fragile — a stale stub
+# silently kills the WebAPI auth ticket, so loadouts never load. This block
+# runs after every build and before every launch, so the real DLL always
+# wins; the built stub remains available as steam_api_stub.dll.
+if ($engineBinDir) {
+    $activeSteamApi = Join-Path $engineBinDir "steam_api.dll"
+    $stubSteamApi = Join-Path $engineBinDir "steam_api_stub.dll"
+    if ((Test-Path $steamApi64) -and (Test-Path $activeSteamApi)) {
+        $realLen = (Get-Item $steamApi64).Length
+        if ((Get-Item $activeSteamApi).Length -ne $realLen) {
+            if (-not (Test-Path $stubSteamApi)) {
+                Copy-Item $activeSteamApi $stubSteamApi -Force
+            }
+            Copy-Item $steamApi64 $activeSteamApi -Force
+            Write-Host "Installed real Steam API over the built stub (bin\steam_api.dll)."
+        }
+    }
+}
 
 Write-Host "Wrote $gameInfoPath"
 Write-Host "Wrote $runtimeEnv"

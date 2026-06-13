@@ -2585,6 +2585,23 @@ bool CMeshDX8::Lock( int nVertexCount, bool bAppend, VertexDesc_t &desc )
 		return false;
 	}
 
+	// A dynamic mesh must never lazy-create a static buffer here: its buffer is
+	// attached by SetVertexFormat and detached on device release. If it is missing,
+	// hand out the same bogus descriptor as the deactivated path above.
+	if ( IsDynamic() && !m_pVertexBuffer )
+	{
+		static bool s_bWarnedNullVB = false;
+		if ( !s_bWarnedNullVB )
+		{
+			s_bWarnedNullVB = true;
+			Warning( "CMeshDX8::Lock: dynamic mesh has no vertex buffer (fmt=%llx); using scratch lock.\n",
+				(unsigned long long)m_VertexFormat );
+		}
+		CVertexBufferBase::ComputeVertexDescription( 0, 0, desc );
+		desc.m_nFirstVertex = 0;
+		return false;
+	}
+
 	// Static vertex buffer case
 	if (!m_pVertexBuffer)
 	{
@@ -2674,6 +2691,21 @@ int CMeshDX8::Lock( bool bReadOnly, int nFirstIndex, int nIndexCount, IndexDesc_
 	if ( g_pShaderDeviceDx8->IsDeactivated() || (nIndexCount == 0))
 	{
 		// Set up a bogus index descriptor
+		desc.m_pIndices = g_nScratchIndexBuffer;
+		desc.m_nIndexSize = 0;
+		return 0;
+	}
+
+	// Dynamic meshes get their index buffer from the mesh manager; never lazy-
+	// create a static one for them (theirs is detached on device release).
+	if ( IsDynamic() && !m_pIndexBuffer )
+	{
+		static bool s_bWarnedNullIB = false;
+		if ( !s_bWarnedNullIB )
+		{
+			s_bWarnedNullIB = true;
+			Warning( "CMeshDX8::Lock: dynamic mesh has no index buffer; using scratch lock.\n" );
+		}
 		desc.m_pIndices = g_nScratchIndexBuffer;
 		desc.m_nIndexSize = 0;
 		return 0;
@@ -3612,10 +3644,24 @@ bool CDynamicMeshDX8::HasEnoughRoom( int nVertexCount, int nIndexCount ) const
 	if ( g_pShaderDeviceDx8->IsDeactivated() )
 		return false;
 
-	Assert( m_pVertexBuffer != NULL );
+	// The dynamic buffers are detached on device release (CMeshMgr::ReleaseBuffers ->
+	// Reset) and only re-attached by the next SetVertexFormat on an active device.
+	// A cached mesh can be locked before that happens; report "no room" like the
+	// deactivated case instead of crashing on the null buffer.
+	if ( !m_pVertexBuffer || !m_pIndexBuffer )
+	{
+		static bool s_bWarnedNullBuffers = false;
+		if ( !s_bWarnedNullBuffers )
+		{
+			s_bWarnedNullBuffers = true;
+			Warning( "CDynamicMeshDX8::HasEnoughRoom: dynamic mesh has detached buffers (vb=%p ib=%p fmt=%llx); treating as no room.\n",
+				m_pVertexBuffer, m_pIndexBuffer, (unsigned long long)m_VertexFormat );
+		}
+		return false;
+	}
 
 	// We need space in both the vertex and index buffer
-	return m_pVertexBuffer->HasEnoughRoom( nVertexCount ) && 
+	return m_pVertexBuffer->HasEnoughRoom( nVertexCount ) &&
 		m_pIndexBuffer->HasEnoughRoom( nIndexCount );
 }
 
@@ -3746,11 +3792,24 @@ void CDynamicMeshDX8::Draw( int nFirstIndex, int nIndexCount )
 
 	m_HasDrawn = true;
 
-	if (m_IndexOverride || m_VertexOverride || 
+	if (m_IndexOverride || m_VertexOverride ||
 		( ( m_TotalVertices > 0 ) && ( m_TotalIndices > 0 || m_Type == MATERIAL_POINTS || m_Type == MATERIAL_INSTANCED_QUADS ) ) )
 	{
 		Assert( !m_IsDrawing );
-		
+
+		// Mirrors the null guard in CMeshDX8::Draw: the dynamic buffers can be
+		// detached by a device release while a caller still holds this mesh.
+		if ( !m_pVertexBuffer )
+		{
+			static bool s_bWarnedNullDraw = false;
+			if ( !s_bWarnedNullDraw )
+			{
+				s_bWarnedNullDraw = true;
+				Warning( "CDynamicMeshDX8::Draw: dynamic mesh has no vertex buffer; skipping draw.\n" );
+			}
+			return;
+		}
+
 		HandleLateCreation( );
 
 		// only have a non-zero first vertex when we are using static indices
@@ -5435,7 +5494,7 @@ void CMeshMgr::GetMaxToRender( IMesh *pMesh, bool bMaxUntilFlush, int *pMaxVerts
 	if ( !pBaseMesh )
 	{
 		*pMaxVerts = 0;
-		*pMaxIndices = m_pDynamicIndexBuffer->IndexCount();
+		*pMaxIndices = m_pDynamicIndexBuffer ? m_pDynamicIndexBuffer->IndexCount() : 0;
 		return;
 	}
 

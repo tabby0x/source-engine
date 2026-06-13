@@ -37,6 +37,16 @@ if (-not $vsInstall) {
     throw "No Visual Studio install with MSVC x86/x64 tools was found."
 }
 
+# waf defaults --msvc_version from VSCMD_VER, which VsDevCmd reports as the
+# bare major (e.g. 16.0) when vswhere is not on PATH; pass the real version
+# so waf matches the installed toolset (e.g. "msvc 16.11").
+$vsVersion = & $vswhere -version '[16.0,17.0)' -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationVersion
+if (-not $vsVersion) {
+    $vsVersion = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationVersion
+}
+$vsVersion = @($vsVersion)[0]
+$msvcVer = ($vsVersion.Split('.')[0, 1] -join '.')
+
 $devCmd = Join-Path $vsInstall "Common7\Tools\VsDevCmd.bat"
 if (-not (Test-Path $devCmd)) {
     throw "VsDevCmd.bat was not found at $devCmd."
@@ -59,7 +69,8 @@ $wafArgs = @(
     "-T", $BuildType,
     "--disable-warns",
     "--prefix=$Prefix",
-    "--build-games=$BuildGames"
+    "--build-games=$BuildGames",
+    "--msvc_version=msvc $msvcVer"
 )
 
 if ($Arch -eq "x86") {

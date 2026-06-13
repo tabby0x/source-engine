@@ -1,0 +1,33 @@
+{
+  "comment": "DX11 shader manifest. Each entry compiles file/entry/target for every permutation of 'dimensions' (combo-style: key = sum(value_i * multiplier_i), multipliers in declaration order). Packs land in <out>/shaders/dx11/<name>.vcsx.",
+  "shaders": [
+    {
+      "name": "universal_vs",
+      "file": "universal.hlsl",
+      "entry": "MainVs",
+      "target": "vs_5_0",
+      "dimensions": [ { "name": "MODE", "values": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35] } ]
+    },
+    {
+      "name": "universal_ps",
+      "file": "universal.hlsl",
+      "entry": "MainPs",
+      "target": "ps_5_0",
+      "dimensions": [ { "name": "MODE", "values": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35] } ]
+    },
+    {
+      "name": "debugtriangle_vs",
+      "file": "debugtriangle.hlsl",
+      "entry": "MainVs",
+      "target": "vs_5_0",
+      "dimensions": []
+    },
+    {
+      "name": "debugtriangle_ps",
+      "file": "debugtriangle.hlsl",
+      "entry": "MainPs",
+      "target": "ps_5_0",
+      "dimensions": []
+    }
+  ]
+}

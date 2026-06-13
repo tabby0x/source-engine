@@ -120,6 +120,11 @@ typedef struct
 
 	unsigned int uSelectionBuffer[SELECTION_BUFFER_SIZE];
 	unsigned int uLastZ;
+
+	// x64: selection names are 32-bit (GL-style selection buffer), so object
+	// POINTERS can no longer ride them. BeginRenderHitTarget pushes 1-based
+	// indices into this per-pick table instead; 0 = no object.
+	CUtlVector<CMapAtom *> NameTable;
 } PickInfo_t;
 
 

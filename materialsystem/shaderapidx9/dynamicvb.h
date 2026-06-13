@@ -400,7 +400,17 @@ void CVertexBuffer::Create( IDirect3DDevice9 *pD3D )
 		// out of vid mem and try again.
 		// FIXME: need to record this
 		pD3D->EvictManagedResources();
-		pD3D->CreateVertexBuffer( m_nBufferSize, desc.Usage, desc.FVF, desc.Pool, &m_pVB, NULL );
+		hr = pD3D->CreateVertexBuffer( m_nBufferSize, desc.Usage, desc.FVF, desc.Pool, &m_pVB, NULL );
+	}
+
+	if ( FAILED( hr ) || !m_pVB )
+	{
+		// Release builds eat the assert below; a null VB here surfaces later as
+		// "failed to lock vertex buffer" / null dynamic-VB crashes. Spew enough
+		// to diagnose (hr, size, pool/usage, device cooperative state).
+		Warning( "CVertexBuffer::Create: CreateVertexBuffer FAILED hr=0x%08x size=%d usage=0x%x pool=%d dynamic=%d coop=0x%08x\n",
+			(unsigned int)hr, m_nBufferSize, (unsigned int)desc.Usage, (int)desc.Pool, m_bDynamic ? 1 : 0,
+			(unsigned int)pD3D->TestCooperativeLevel() );
 	}
 
 #ifdef _DEBUG

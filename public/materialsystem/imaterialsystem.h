@@ -72,11 +72,11 @@ typedef uint64 VertexFormat_t;
 //                     very judiciously since we need to audit them when merging to SDK branch either way.
 #define MATERIAL_SYSTEM_INTERFACE_VERSION "VMaterialSystem081"
 
-#ifdef POSIX
+// This fork ships only the dx9-class shader DLLs (stdshader_dx9); below
+// dxlevel 90 every material resolves a *_DX8 fallback that does not exist,
+// which cascades into unprecached materials and zero-size vertex buffers
+// (see Plan.md). POSIX always used 90 for the same reason; Windows now too.
 #define ABSOLUTE_MINIMUM_DXLEVEL 90
-#else
-#define ABSOLUTE_MINIMUM_DXLEVEL 80
-#endif
 
 enum ShaderParamType_t 
 { 
@@ -1792,7 +1792,11 @@ private:
 
 
 // Also be sure to enable PIX_INSTRUMENTATION in shaderdevicedx8.h
-//#define PIX_ENABLE 1		// set this to 1 and build engine/studiorender to enable pix events in the engine
+// Enabled for the DX11 branch: the dx11 backend forwards these through
+// ID3DUserDefinedAnnotation, which RenderDoc shows as event groups (BSP via
+// gl_rsurf, per-model via studiorender, views/post via viewrender). Without
+// a capture tool attached the annotation calls are near-free.
+#define PIX_ENABLE 1
 
 #if PIX_ENABLE
 #	define PIXEVENT PIXEvent _pixEvent

@@ -225,7 +225,14 @@ CStudioHdr * CEconEntity::OnNewModel()
 	m_cFlexDelayedWeight = 0;
 	if ( hdr && hdr->numflexcontrollers() )
 	{
-		m_cFlexDelayedWeight = hdr->numflexcontrollers();
+		// Sized by flex DESCRIPTORS, not controllers: the renderer's
+		// nFlexWeightCount (and RunFlexDelay's iteration) is the flexdesc
+		// count — C_BaseFlex sizes the same buffer with numflexdesc()
+		// (c_baseflex.cpp OnModelLoad). Sizing by controller count made
+		// SetupWeights' count check bail on any model whose desc count
+		// differs, permanently disabling its flexes (the BUGBUG there blamed
+		// SetCustomModel header mismatches — it was this).
+		m_cFlexDelayedWeight = hdr->numflexdesc();
 		m_flFlexDelayedWeight = new float[ m_cFlexDelayedWeight ];
 		memset( m_flFlexDelayedWeight, 0, sizeof( float ) * m_cFlexDelayedWeight );
 
@@ -1389,7 +1396,12 @@ bool CEconEntity::InternalFireEvent( const Vector& origin, const QAngle& angles,
 //-----------------------------------------------------------------------------
 bool CEconEntity::UsesFlexDelayedWeights()
 {
-	return m_flFlexDelayedWeight != NULL;
+	// Honor flex_smooth like C_BaseFlex::UsesFlexDelayedWeights — otherwise
+	// flex_smooth 0 renders the OWNER's face with raw weights while the
+	// bonemerged cosmetic stays smoothed, guaranteeing transient clipping
+	// on every fast mouth movement.
+	static ConVarRef flex_smooth( "flex_smooth" );
+	return m_flFlexDelayedWeight != NULL && ( !flex_smooth.IsValid() || flex_smooth.GetBool() );
 }
 
 //-----------------------------------------------------------------------------

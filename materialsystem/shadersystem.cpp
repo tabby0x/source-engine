@@ -1729,6 +1729,19 @@ void CShaderSystem::DrawUsingMaterial( IMaterialInternal *pMaterial, VertexCompr
 	g_pShaderAPI->SetDefaultState( );
 
 	IShader *pShader = pMaterial->GetShader();
+	if ( !pShader || !pRenderState || !pRenderState->m_pSnapshots )
+	{
+		// A debug material whose shader DLL isn't present (the old
+		// stdshader_dbg set) used to crash right here on a null vtable.
+		static bool s_bWarned = false;
+		if ( !s_bWarned )
+		{
+			s_bWarned = true;
+			Warning( "DrawUsingMaterial: material %s has no usable shader/render state; debug mode draw skipped\n",
+				pMaterial->GetName() );
+		}
+		return;
+	}
 	int nMod = pShader->ComputeModulationFlags( pMaterial->GetShaderParams(), g_pShaderAPI );
 	PrepForShaderDraw( pShader, pMaterial->GetShaderParams(), pRenderState, nMod );
 	g_pShaderAPI->BeginPass( pRenderState->m_pSnapshots[nMod].m_Snapshot[0] );

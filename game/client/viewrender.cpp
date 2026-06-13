@@ -3899,6 +3899,9 @@ void CRendering3dView::DrawOpaqueRenderables( ERenderDepthMode DepthMode )
 	if( !m_pMainView->ShouldDrawEntities() )
 		return;
 
+	CMatRenderContextPtr pRenderContext( materials );
+	PIXEVENT( pRenderContext, "DrawOpaqueRenderables (props/entities)" );
+
 	render->SetBlend( 1 );
 
 	//
@@ -4298,6 +4301,9 @@ void CRendering3dView::DrawNoZBufferTranslucentRenderables( void )
 void CRendering3dView::DrawTranslucentRenderables( bool bInSkybox, bool bShadowDepth )
 {
 	const ClientWorldListInfo_t& info = *m_pWorldListInfo;
+
+	CMatRenderContextPtr pPixRenderContext( materials );
+	PIXEVENT( pPixRenderContext, "DrawTranslucentRenderables (incl. particles)" );
 
 #ifdef PORTAL //if we're in the portal mod, we need to make a detour so we can render portal views using stencil areas
 	if( ShouldDrawPortals() ) //no recursive stencil views during skybox rendering (although we might be drawing a skybox while already in a recursive stencil view)

@@ -340,6 +340,9 @@ private:
 		// Authentication
 		HAuthTicket m_hSteamAuthTicket = k_HAuthTicketInvalid;
 		CUtlVector<uint8> m_bufAuthToken;
+		RTime32 m_rtAuthTicketRequestTime = 0;	// watchdog: Steam sometimes never
+												// answers GetAuthTicketForWebApi
+												// (e.g. after dirty app exits)
 
 		// Inventory request
 		HTTPRequestHandle m_hInventoryRequest = INVALID_HTTPREQUEST_HANDLE;

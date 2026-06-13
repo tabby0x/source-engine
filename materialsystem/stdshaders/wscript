@@ -127,16 +127,18 @@ def build(bld):
 		'writez_dx9.cpp',
 		'writestencil_dx9.cpp',
 		'eyeball.cpp',
+		# Debug-mode shaders (mat_normalmaps/mat_luxels/mat_fillrate/...).
+		# Historically a separate stdshader_dbg.dll (which the shader system
+		# still tries to load); compiled into stdshader_dx9 instead — shader
+		# lookup is by name across loaded DLLs. Without these the debug
+		# materials got a NULL shader and DrawUsingMaterial crashed.
+		'debugdepth.cpp',
+		'DebugDrawEnvmapMask.cpp',
+		'debugluxel.cpp',
+		'debugnormalmap.cpp',
+		'debugtangentspace.cpp',
+		'fillrate.cpp',
 		'../../public/tier0/memoverride.cpp'
-#		$Folder	'stdshader_dbg Files', [$X360]
-#		{
-#			'debugdepth.cpp',
-#			'DebugDrawEnvmapMask.cpp',
-#			'debugluxel.cpp',
-#			'debugnormalmap.cpp',
-#			'debugtangentspace.cpp',
-#			'fillrate.cpp',
-
 	]
 
 	includes = [

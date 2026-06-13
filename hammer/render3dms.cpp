@@ -239,7 +239,7 @@ void CRender3D::BeginRenderHitTarget(CMapAtom *pObject, unsigned int uHandle)
 	}
 
 	CMatRenderContextPtr pRenderContext( MaterialSystemInterface() );
-	pRenderContext->PushSelectionName((unsigned int)pObject);
+	pRenderContext->PushSelectionName( (unsigned int)( m_Pick.NameTable.AddToTail( pObject ) + 1 ) );
 	pRenderContext->PushSelectionName(uHandle);
 }
 
@@ -267,7 +267,10 @@ void CRender3D::EndRenderHitTarget(void)
 		{
 			if (m_Pick.uSelectionBuffer[0] == 2)
 			{
-				m_Pick.Hits[m_Pick.nNumHits].pObject = (CMapClass *)m_Pick.uSelectionBuffer[3];
+				unsigned int nName = m_Pick.uSelectionBuffer[3];
+				m_Pick.Hits[m_Pick.nNumHits].pObject =
+					( nName != 0 && nName <= (unsigned int)m_Pick.NameTable.Count() )
+					? (CMapClass *)m_Pick.NameTable[nName - 1] : NULL;
 				m_Pick.Hits[m_Pick.nNumHits].uData = m_Pick.uSelectionBuffer[4];
 				m_Pick.Hits[m_Pick.nNumHits].nDepth = m_Pick.uSelectionBuffer[1];
 				m_Pick.Hits[m_Pick.nNumHits].m_LocalMatrix = m_LocalMatrix.Head();
@@ -612,6 +615,7 @@ int CRender3D::ObjectsAt( float x, float y, float fWidth, float fHeight, HitInfo
 	m_Pick.pHitsDest = pObjects;
 	m_Pick.nMaxHits = min(nMaxObjects, MAX_PICK_HITS);
 	m_Pick.nNumHits = 0;
+	m_Pick.NameTable.RemoveAll();
 
 	if (!m_RenderState.bReverseSelection)
 	{
@@ -1977,7 +1981,7 @@ void CRender3D::RenderCone( Vector const &vBasePt, Vector const &vTipPt, float f
 	int size = nSlices * sizeof( Vector );
 	size += 16 + sizeof( Vector* );
 	byte *ptr = ( byte* )_alloca( size );
-	long data = ( long )ptr;
+	intp data = ( intp )ptr;
 	
 	data += 16 + sizeof( Vector* ) - 1;
 	data &= -16;

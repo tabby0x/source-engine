@@ -362,11 +362,29 @@ void CTFGCClientSystem::WebapiInventoryThink()
 			return;
 		}
 
+		state.m_rtAuthTicketRequestTime = CRTime::RTime32TimeCur();
 		state.m_eState = kWebapiInventoryState_WaitingForAuthToken;
 		break;
 
 	case kWebapiInventoryState_WaitingForAuthToken:
-		// Nothing to do until we get the steam callback; that will advance us to AuthTokenReceived
+		// Normally nothing to do until the GetTicketForWebApiResponse_t
+		// callback advances us to AuthTokenReceived — but the Steam client
+		// sometimes never answers (observed after rapid dirty app exits:
+		// the request parked here silently forever). Watchdog: cancel and
+		// re-request with backoff so the failure is visible and recoverable.
+		if ( state.m_rtAuthTicketRequestTime != 0 &&
+			 CRTime::RTime32TimeCur() > state.m_rtAuthTicketRequestTime + 30 )
+		{
+			Warning( "TF inventory: WebAPI auth ticket request timed out (no Steam callback in 30s); retrying\n" );
+			if ( SteamUser() && state.m_hSteamAuthTicket != k_HAuthTicketInvalid )
+			{
+				SteamUser()->CancelAuthTicket( state.m_hSteamAuthTicket );
+				state.m_hSteamAuthTicket = k_HAuthTicketInvalid;
+			}
+			state.m_rtAuthTicketRequestTime = 0;
+			state.Backoff();
+			state.m_eState = kWebapiInventoryState_RequestAuthToken;
+		}
 		break;
 
 	case kWebapiInventoryState_AuthTokenReceived:

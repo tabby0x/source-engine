@@ -455,9 +455,27 @@ void TFViewport::OnScreenSizeChanged( int iOldWide, int iOldTall )
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: 
+// Purpose:
 //-----------------------------------------------------------------------------
 void TFViewport::OnTick()
 {
 	m_pAnimController->UpdateAnimations( gpGlobals->curtime );
+}
+
+//-----------------------------------------------------------------------------
+// Dev automation: dismiss the purely-UI panels (welcome/MOTD, map info,
+// team select, class select) that otherwise need mouse input. Lets test
+// tooling drive jointeam/joinclass deterministically. See devtools/tf2ctl.py.
+//-----------------------------------------------------------------------------
+CON_COMMAND( dev_dismiss_ui, "Close MOTD/mapinfo/team/class menu panels (test automation)" )
+{
+	if ( !gViewPortInterface )
+		return;
+	gViewPortInterface->ShowPanel( PANEL_INFO, false );
+	gViewPortInterface->ShowPanel( PANEL_MAPINFO, false );
+	gViewPortInterface->ShowPanel( PANEL_TEAM, false );
+	gViewPortInterface->ShowPanel( PANEL_CLASS_RED, false );
+	gViewPortInterface->ShowPanel( PANEL_CLASS_BLUE, false );
+	gViewPortInterface->ShowPanel( PANEL_INTRO, false );
+	Msg( "dev_dismiss_ui: panels dismissed\n" );
 }

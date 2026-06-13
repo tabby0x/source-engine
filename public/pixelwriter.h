@@ -519,7 +519,14 @@ FORCEINLINE_PIXEL void CPixelWriter::WritePixelNoAdvance( int r, int g, int b, i
 			{
 				if ( IsPC() || !IsX360() )
 				{
-					((unsigned char *)m_pBits)[0] = (unsigned char)((val & 0xffff));
+					// Write both low bytes: stock code stores them as one
+					// unsigned short. A past edit narrowed that store to a
+					// single byte, so byte 1 — the GREEN channel of every
+					// 24-bit format — was never written (corrupted color
+					// correction LUTs with scratch-heap garbage, among any
+					// other RGB888/BGR888 procedural writes).
+					m_pBits[0] = (unsigned char)(val & 0xff);
+					m_pBits[1] = (unsigned char)((val >> 8) & 0xff);
 					m_pBits[2] = (unsigned char)((val >> 16) & 0xff);
 				}
 				else

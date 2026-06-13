@@ -236,10 +236,15 @@ void CLoadoutPresetPanel::UpdatePresetButtonStates()
 {
 	equipped_preset_t unEquippedPresetID = GetSelectedPresetID();
 
-	CSteamID localSteamID = steamapicontext->SteamUser()->GetSteamID();
-	CTFPlayerInventory *pInv = TFInventoryManager()->GetInventoryForPlayer(localSteamID);
-	if (pInv) {
-		unEquippedPresetID = pInv->GetActiveLocalPreset(m_iClass);
+	// No logged-in Steam user in steamless/-insecure dev launches: keep the
+	// preset from GetSelectedPresetID instead of dereferencing null.
+	if ( steamapicontext && steamapicontext->SteamUser() )
+	{
+		CSteamID localSteamID = steamapicontext->SteamUser()->GetSteamID();
+		CTFPlayerInventory *pInv = TFInventoryManager()->GetInventoryForPlayer(localSteamID);
+		if (pInv) {
+			unEquippedPresetID = pInv->GetActiveLocalPreset(m_iClass);
+		}
 	}
 
 	for ( int i = 0; i < MAX_PRESETS; ++i )

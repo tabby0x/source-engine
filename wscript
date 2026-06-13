@@ -430,6 +430,9 @@ def check_deps(conf):
 		conf.check(lib='d3d9', uselib_store='D3D9')
 		conf.check(lib='dsound', uselib_store='DSOUND')
 		conf.check(lib='dxguid', uselib_store='DXGUID')
+		conf.check(lib='d3d11', uselib_store='D3D11')
+		conf.check(lib='dxgi', uselib_store='DXGI')
+		conf.check(lib='d3dcompiler', uselib_store='D3DCOMPILER')
 		if conf.options.OPUS:
 			conf.check(lib='opus', uselib_store='OPUS')
 
@@ -469,6 +472,9 @@ def configure(conf):
 	if conf.env.DEST_OS == 'win32':
 		projects['game'] += ['utils/bzip2']
 		projects['dedicated'] += ['utils/bzip2']
+		projects['game'] += ['materialsystem/shaderapidx11']
+		# Hammer (MFC level editor) + its libs — win32-only by nature
+		projects['game'] += ['fgdlib', 'raytrace', 'hammer', 'hammer_launcher']
 	if conf.options.OPUS or conf.env.DEST_OS == 'android':
 		projects['game'] += ['engine/voice_codecs/opus']
 
@@ -640,6 +646,9 @@ def build(bld):
 	if bld.env.DEST_OS == 'win32':
 		projects['game'] += ['utils/bzip2']
 		projects['dedicated'] += ['utils/bzip2']
+		projects['game'] += ['materialsystem/shaderapidx11']
+		# Hammer (MFC level editor) + its libs — win32-only by nature
+		projects['game'] += ['fgdlib', 'raytrace', 'hammer', 'hammer_launcher']
 
 	if bld.env.OPUS or bld.env.DEST_OS == 'android':
 		projects['game'] += ['engine/voice_codecs/opus']
